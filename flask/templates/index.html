@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSA A-Star / PA-Star</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🧬 MSA A-Star / PA-Star</h1>
+            <p class="subtitle">Multiple Sequence Alignment - Interface Gráfica</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Configuration Panel -->
+            <div class="config-panel">
+                <h2>⚙️ Configuração</h2>
+
+                <div class="form-group">
+                    <label for="algorithm">Algoritmo:</label>
+                    <select id="algorithm" class="form-control">
+                        <option value="msa_astar">MSA A-Star (Serial)</option>
+                        <option value="msa_pastar" selected>MSA PA-Star (Paralelo)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="threads-group">
+                    <label for="num_threads">Número de Threads:</label>
+                    <input type="number" id="num_threads" class="form-control" value="4" min="1" max="128">
+                </div>
+
+                <div class="form-group">
+                    <label for="cost_type">Tipo de Custo:</label>
+                    <select id="cost_type" class="form-control">
+                        <option value="PAM250" selected>PAM250 (Proteínas)</option>
+                        <option value="NUC">NUC (Nucleotídeos)</option>
+                    </select>
+                </div>
+
+                <h3>📁 Sequências</h3>
+
+                <div class="form-group">
+                    <label for="source">Fonte:</label>
+                    <select id="source" class="form-control">
+                        <option value="">-- Selecione uma fonte --</option>
+                        {% for source_key, source_data in all_sequences.items() %}
+                        <option value="{{ source_key }}">{{ source_data.name }} - {{ source_data.description }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="category">Categoria:</label>
+                    <select id="category" class="form-control" disabled>
+                        <option value="">-- Primeiro selecione uma fonte --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="subcategory">Subcategoria:</label>
+                    <select id="subcategory" class="form-control" disabled>
+                        <option value="">-- Selecione se houver subcategorias --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="sequence_file">Arquivo de Sequência:</label>
+                    <select id="sequence_file" class="form-control" disabled>
+                        <option value="">-- Selecione uma categoria primeiro --</option>
+                    </select>
+                </div>
+
+                <button id="btn-info" class="btn btn-secondary" disabled>
+                    📊 Ver Informações da Sequência
+                </button>
+
+                <button id="btn-run" class="btn btn-primary" disabled>
+                    ▶️ Executar Alinhamento
+                </button>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="results-panel">
+                <h2>📊 Resultados</h2>
+
+                <div id="sequence-info" class="info-box" style="display: none;">
+                    <h3>Informações da Sequência</h3>
+                    <div id="sequence-info-content"></div>
+                </div>
+
+                <div id="execution-status" class="status-box" style="display: none;">
+                    <h3>Status da Execução</h3>
+                    <div id="execution-status-content"></div>
+                </div>
+
+                <div id="results-content" style="display: none;">
+                    <h3>Resultado do Alinhamento</h3>
+                    <div class="result-stats" id="result-stats"></div>
+                    <div class="result-output">
+                        <h4>Saída (FASTA):</h4>
+                        <button id="btn-download" class="btn btn-secondary">⬇️ Download FASTA</button>
+                        <pre id="output-content"></pre>
+                    </div>
+                    <div class="result-logs">
+                        <h4>Log da Execução:</h4>
+                        <pre id="log-content"></pre>
+                    </div>
+                </div>
+
+                <div id="history-section">
+                    <h3>📜 Histórico de Execuções</h3>
+                    <div id="history-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data storage
+        const sequencesData = {{ all_sequences | tojson }};
+        let currentResultId = null;
+        let currentFilePath = null;
+
+        // Elements
+        const algorithmSelect = document.getElementById('algorithm');
+        const threadsGroup = document.getElementById('threads-group');
+        const sourceSelect = document.getElementById('source');
+        const categorySelect = document.getElementById('category');
+        const subcategorySelect = document.getElementById('subcategory');
+        const sequenceFileSelect = document.getElementById('sequence_file');
+        const btnInfo = document.getElementById('btn-info');
+        const btnRun = document.getElementById('btn-run');
+        const btnDownload = document.getElementById('btn-download');
+
+        // Toggle threads input based on algorithm
+        algorithmSelect.addEventListener('change', () => {
+            threadsGroup.style.display =
+                algorithmSelect.value === 'msa_pastar' ? 'block' : 'none';
+        });
+
+        // Helper function to check if an object has files
+        function hasFiles(obj) {
+            return obj && obj._files && obj._files.length > 0;
+        }
+
+        // Helper function to get nested structure
+        function getNestedStructure(source, category, subcategory = null) {
+            if (!sequencesData[source] || !sequencesData[source].categories) return null;
+
+            const categories = sequencesData[source].categories;
+            if (!categories[category]) return null;
+
+            if (subcategory) {
+                return categories[category][subcategory] || null;
+            }
+
+            return categories[category];
+        }
+
+        // Source selection
+        sourceSelect.addEventListener('change', () => {
+            const source = sourceSelect.value;
+            categorySelect.innerHTML = '<option value="">-- Selecione uma categoria --</option>';
+            subcategorySelect.innerHTML = '<option value="">-- Selecione se houver subcategorias --</option>';
+            sequenceFileSelect.innerHTML = '<option value="">-- Selecione uma categoria primeiro --</option>';
+
+            categorySelect.disabled = true;
+            subcategorySelect.disabled = true;
+            sequenceFileSelect.disabled = true;
+
+            if (source && sequencesData[source] && sequencesData[source].categories) {
+                const categories = sequencesData[source].categories;
+                const catKeys = Object.keys(categories).filter(k => k !== '_files');
+
+                if (catKeys.length > 0) {
+                    catKeys.forEach(catKey => {
+                        const option = document.createElement('option');
+                        option.value = catKey;
+                        option.textContent = catKey;
+                        categorySelect.appendChild(option);
+                    });
+                    categorySelect.disabled = false;
+                }
+
+                // Check if there are files directly in the source
+                if (hasFiles(categories)) {
+                    categorySelect.innerHTML = '<option value="_root">Arquivos na raiz</option>';
+                    categorySelect.disabled = false;
+                }
+            }
+
+            updateButtonStates();
+        });
+
+        // Category selection
+        categorySelect.addEventListener('change', () => {
+            const source = sourceSelect.value;
+            const category = categorySelect.value;
+
+            subcategorySelect.innerHTML = '<option value="">-- Selecione se houver subcategorias --</option>';
+            sequenceFileSelect.innerHTML = '<option value="">-- Selecione uma categoria primeiro --</option>';
+            subcategorySelect.disabled = true;
+            sequenceFileSelect.disabled = true;
+
+            if (!source || !category) {
+                updateButtonStates();
+                return;
+            }
+
+            const catData = getNestedStructure(source, category);
+
+            if (!catData) {
+                updateButtonStates();
+                return;
+            }
+
+            // Check for subcategories
+            const subcatKeys = Object.keys(catData).filter(k => k !== '_files' && typeof catData[k] === 'object');
+
+            if (subcatKeys.length > 0) {
+                subcatKeys.forEach(subcatKey => {
+                    const option = document.createElement('option');
+                    option.value = subcatKey;
+                    option.textContent = subcatKey;
+                    subcategorySelect.appendChild(option);
+                });
+                subcategorySelect.disabled = false;
+            }
+
+            // Check for files directly in category
+            if (hasFiles(catData)) {
+                populateFiles(catData._files, source, category, null);
+            }
+
+            updateButtonStates();
+        });
+
+        // Subcategory selection
+        subcategorySelect.addEventListener('change', () => {
+            const source = sourceSelect.value;
+            const category = categorySelect.value;
+            const subcategory = subcategorySelect.value;
+
+            sequenceFileSelect.innerHTML = '<option value="">-- Selecione um arquivo --</option>';
+            sequenceFileSelect.disabled = true;
+
+            if (!subcategory) {
+                // If subcategory is cleared, show category files
+                const catData = getNestedStructure(source, category);
+                if (hasFiles(catData)) {
+                    populateFiles(catData._files, source, category, null);
+                }
+                updateButtonStates();
+                return;
+            }
+
+            const subcatData = getNestedStructure(source, category, subcategory);
+
+            if (subcatData && hasFiles(subcatData)) {
+                populateFiles(subcatData._files, source, category, subcategory);
+            }
+
+            updateButtonStates();
+        });
+
+        // File selection
+        sequenceFileSelect.addEventListener('change', () => {
+            const selectedOption = sequenceFileSelect.selectedOptions[0];
+            if (selectedOption) {
+                currentFilePath = selectedOption.dataset.path;
+            }
+            updateButtonStates();
+        });
+
+        function populateFiles(files, source, category, subcategory) {
+            sequenceFileSelect.innerHTML = '<option value="">-- Selecione um arquivo --</option>';
+
+            const basePath = sequencesData[source].path + '/' + category;
+            const fullPath = subcategory ? basePath + '/' + subcategory : basePath;
+
+            files.forEach(file => {
+                const option = document.createElement('option');
+                option.value = file;
+                option.textContent = file;
+                option.dataset.path = fullPath + '/' + file;
+                sequenceFileSelect.appendChild(option);
+            });
+
+            sequenceFileSelect.disabled = false;
+        }
+
+        function updateButtonStates() {
+            const fileSelected = sequenceFileSelect.value !== '' && currentFilePath;
+            btnInfo.disabled = !fileSelected;
+            btnRun.disabled = !fileSelected;
+        }
+
+        // Show sequence information
+        btnInfo.addEventListener('click', async () => {
+            if (!currentFilePath) {
+                alert('Selecione um arquivo primeiro');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/sequence_info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file_path: currentFilePath })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    let html = `
+                        <p><strong>Arquivo:</strong> ${data.file_path}</p>
+                        <p><strong>Número de sequências:</strong> ${data.num_sequences}</p>
+                        <table class="seq-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Header</th>
+                                    <th>Comprimento</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+
+                    data.sequences.forEach((seq, idx) => {
+                        html += `
+                            <tr>
+                                <td>${idx + 1}</td>
+                                <td>${seq.header}</td>
+                                <td>${seq.length}</td>
+                            </tr>
+                        `;
+                    });
+
+                    html += '</tbody></table>';
+
+                    document.getElementById('sequence-info-content').innerHTML = html;
+                    document.getElementById('sequence-info').style.display = 'block';
+                } else {
+                    alert('Erro ao obter informações: ' + data.error);
+                }
+            } catch (error) {
+                alert('Erro ao obter informações: ' + error);
+            }
+        });
+
+        // Run alignment
+        btnRun.addEventListener('click', async () => {
+            if (!currentFilePath) {
+                alert('Selecione um arquivo primeiro');
+                return;
+            }
+
+            const requestData = {
+                algorithm: algorithmSelect.value,
+                sequence_file: sequenceFileSelect.value,
+                file_path: currentFilePath,
+                cost_type: document.getElementById('cost_type').value,
+                num_threads: parseInt(document.getElementById('num_threads').value)
+            };
+
+            // Show status
+            document.getElementById('execution-status-content').innerHTML =
+                '<p>⏳ Executando... Por favor aguarde.</p>';
+            document.getElementById('execution-status').style.display = 'block';
+            document.getElementById('results-content').style.display = 'none';
+
+            btnRun.disabled = true;
+
+            try {
+                const response = await fetch('/api/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    currentResultId = data.result_id;
+
+                    document.getElementById('execution-status-content').innerHTML =
+                        `<p>✅ Execução concluída com sucesso!</p>
+                         <p><strong>Tempo de execução:</strong> ${data.execution_time.toFixed(2)}s</p>`;
+
+                    // Show results
+                    document.getElementById('result-stats').innerHTML = `
+                        <p><strong>ID:</strong> ${data.result_id}</p>
+                        <p><strong>Tempo:</strong> ${data.execution_time.toFixed(2)}s</p>
+                        <p><strong>Código de retorno:</strong> ${data.return_code}</p>
+                    `;
+
+                    document.getElementById('output-content').textContent = data.output_content;
+                    document.getElementById('log-content').textContent = data.stdout;
+                    document.getElementById('results-content').style.display = 'block';
+
+                    // Refresh history
+                    loadHistory();
+                } else {
+                    document.getElementById('execution-status-content').innerHTML =
+                        `<p>❌ Erro na execução!</p>
+                         <p>${data.error || 'Erro desconhecido'}</p>`;
+                }
+            } catch (error) {
+                document.getElementById('execution-status-content').innerHTML =
+                    `<p>❌ Erro na execução!</p>
+                     <p>${error}</p>`;
+            } finally {
+                btnRun.disabled = false;
+            }
+        });
+
+        // Download result
+        btnDownload.addEventListener('click', () => {
+            if (currentResultId) {
+                window.location.href = `/api/download/${currentResultId}`;
+            }
+        });
+
+        // Load execution history
+        async function loadHistory() {
+            try {
+                const response = await fetch('/api/results');
+                const results = await response.json();
+
+                if (results.length === 0) {
+                    document.getElementById('history-list').innerHTML =
+                        '<p>Nenhuma execução anterior encontrada.</p>';
+                    return;
+                }
+
+                let html = '<table class="history-table"><thead><tr>' +
+                    '<th>ID</th><th>Timestamp</th><th>Tempo (s)</th><th>Status</th><th>Ação</th>' +
+                    '</tr></thead><tbody>';
+
+                results.forEach(result => {
+                    const status = result.return_code === 0 ? '✅' : '❌';
+                    html += `
+                        <tr>
+                            <td>${result.id}</td>
+                            <td>${result.timestamp}</td>
+                            <td>${result.execution_time ? result.execution_time.toFixed(2) : 'N/A'}</td>
+                            <td>${status}</td>
+                            <td>
+                                <button class="btn-small" onclick="loadResult('${result.id}')">Ver</button>
+                                <button class="btn-small" onclick="downloadResult('${result.id}')">⬇️</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table>';
+                document.getElementById('history-list').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        async function loadResult(resultId) {
+            try {
+                const response = await fetch(`/api/result/${resultId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentResultId = resultId;
+
+                    document.getElementById('execution-status-content').innerHTML =
+                        `<p>📄 Resultado carregado do histórico</p>
+                         <p><strong>Tempo de execução:</strong> ${data.execution_time.toFixed(2)}s</p>`;
+                    document.getElementById('execution-status').style.display = 'block';
+
+                    document.getElementById('result-stats').innerHTML = `
+                        <p><strong>ID:</strong> ${resultId}</p>
+                        <p><strong>Tempo:</strong> ${data.execution_time.toFixed(2)}s</p>
+                        <p><strong>Código de retorno:</strong> ${data.return_code}</p>
+                        <p><strong>Comando:</strong> <code>${data.command}</code></p>
+                    `;
+
+                    document.getElementById('output-content').textContent = data.output_content;
+                    document.getElementById('log-content').textContent = data.stdout;
+                    document.getElementById('results-content').style.display = 'block';
+                }
+            } catch (error) {
+                alert('Erro ao carregar resultado: ' + error);
+            }
+        }
+
+        function downloadResult(resultId) {
+            window.location.href = `/api/download/${resultId}`;
+        }
+
+        // Load history on page load
+        loadHistory();
+    </script>
+</body>
+
+</html>
