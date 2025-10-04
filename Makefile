@@ -96,7 +96,8 @@ PASTAR_SRCS = \
 
 INC_PATH += \
     -I$(INC_DIR)\
-    -I/usr/include
+    -I/usr/include\
+    -I/usr/local/include
 
 CPPFLAGS += $(INC_PATH)
 

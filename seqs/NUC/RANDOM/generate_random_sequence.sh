@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 SIZE=100
 NUM_SEQ=3
