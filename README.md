@@ -13,7 +13,7 @@ The PA-Star has been developed for Linux. The software is stable and has been st
 You need a modern C++ compiler and the libboost devel package. On Ubuntu, you can install it by:
 
 ```
-sudo apt-get install build-essential libboost-dev
+sudo apt-get install build-essential libboost-all-dev
 ```
 
 ### Compiling
