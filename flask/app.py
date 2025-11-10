@@ -2,6 +2,9 @@
 """
 Flask for MSA A-Star and PA-Star
 Manage executions and select BALIBASE test sequences
+
+Author: Vinícius Manoel
+Copyright: MIT License
 """
 
 from flask import Flask, render_template, request, jsonify, send_file
@@ -47,6 +50,42 @@ SOURCES = {
         'description': 'PAM sequences'
     }
 }
+
+
+def get_available_binaries():
+    """Scan bin directory and return available executables"""
+    binaries = {
+        'astar': [],
+        'pastar': []
+    }
+
+    if not BIN_DIR.exists():
+        return binaries
+
+    # Scan for executables
+    for binary_file in BIN_DIR.iterdir():
+        if binary_file.is_file() and os.access(binary_file, os.X_OK):
+            name = binary_file.name
+
+            # Categorize by algorithm type
+            if 'astar' in name.lower() and 'pastar' not in name.lower():
+                binaries['astar'].append({
+                    'name': name,
+                    'path': str(binary_file),
+                    'display_name': name.replace('msa_astar_', 'A-Star - ').replace('_', ' ').title()
+                })
+            elif 'pastar' in name.lower():
+                binaries['pastar'].append({
+                    'name': name,
+                    'path': str(binary_file),
+                    'display_name': name.replace('msa_pastar_', 'PA-Star - ').replace('_', ' ').title()
+                })
+
+    # Sort by name
+    binaries['astar'].sort(key=lambda x: x['name'])
+    binaries['pastar'].sort(key=lambda x: x['name'])
+
+    return binaries
 
 
 def scan_directory_recursively(directory, max_depth=5, current_depth=0):
@@ -123,20 +162,44 @@ def get_sequences():
     return jsonify(all_sequences)
 
 
+@app.route('/api/binaries')
+def get_binaries():
+    """API endpoint to get available binary versions"""
+    binaries = get_available_binaries()
+    return jsonify(binaries)
+
+
 @app.route('/api/run', methods=['POST'])
 def run_alignment():
     """Execute MSA alignment"""
     data = request.json
 
     algorithm = data.get('algorithm', 'msa_astar')
+    binary_name = data.get('binary_name')  # Specific binary to use
     sequence_file = data.get('sequence_file')
     file_path_str = data.get('file_path')  # Full path from frontend
     cost_type = data.get('cost_type', 'PAM250')
     num_threads = data.get('num_threads', 4)
 
-    # Validate algorithm
-    if algorithm not in ['msa_astar', 'msa_pastar']:
-        return jsonify({'error': 'Invalid algorithm'}), 400
+    # Get available binaries
+    available_binaries = get_available_binaries()
+
+    # Determine which binary to use
+    binary_path = None
+
+    if binary_name:
+        # User specified a specific binary
+        binary_path = BIN_DIR / binary_name
+        if not binary_path.exists() or not os.access(binary_path, os.X_OK):
+            return jsonify({'error': f'Binary not found or not executable: {binary_name}'}), 400
+    else:
+        # Use default based on algorithm type
+        if algorithm == 'msa_astar' and available_binaries['astar']:
+            binary_path = Path(available_binaries['astar'][0]['path'])
+        elif algorithm == 'msa_pastar' and available_binaries['pastar']:
+            binary_path = Path(available_binaries['pastar'][0]['path'])
+        else:
+            return jsonify({'error': 'No binary available for selected algorithm'}), 400
 
     # Build file path
     if file_path_str:
@@ -149,13 +212,13 @@ def run_alignment():
 
     # Create unique result identifier
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    result_id = f"{algorithm}_{timestamp}"
+    binary_version = binary_path.name
+    result_id = f"{binary_version}_{timestamp}"
     output_file = RESULTS_DIR / f"{result_id}.fasta"
     log_file = RESULTS_DIR / f"{result_id}.log"
 
     # Build command
-    binary = BIN_DIR / algorithm
-    cmd = [str(binary)]
+    cmd = [str(binary_path)]
 
     # Add cost type
     cmd.extend(['-c', cost_type])
@@ -164,7 +227,7 @@ def run_alignment():
     cmd.extend(['-f', str(output_file)])
 
     # Add threads for parallel version
-    if algorithm == 'msa_pastar':
+    if 'pastar' in binary_version.lower():
         cmd.extend(['-t', str(num_threads)])
 
     # Add input file
@@ -177,18 +240,22 @@ def run_alignment():
             cmd,
             capture_output=True,
             text=True,
-            timeout=300  # 5 minutes timeout
+            timeout=600  # 5 minutes timeout
         )
         execution_time = time.time() - start_time
 
         # Save log
         log_content = {
+            'binary': binary_version,
             'command': ' '.join(cmd),
             'execution_time': execution_time,
             'return_code': result.returncode,
             'stdout': result.stdout,
             'stderr': result.stderr,
-            'timestamp': timestamp
+            'timestamp': timestamp,
+            'input_file': str(file_path),
+            'cost_type': cost_type,
+            'num_threads': num_threads if 'pastar' in binary_version.lower() else None
         }
 
         with open(log_file, 'w') as f:
@@ -203,6 +270,7 @@ def run_alignment():
         return jsonify({
             'success': True,
             'result_id': result_id,
+            'binary': binary_version,
             'execution_time': execution_time,
             'stdout': result.stdout,
             'stderr': result.stderr,
@@ -214,7 +282,7 @@ def run_alignment():
     except subprocess.TimeoutExpired:
         return jsonify({
             'success': False,
-            'error': 'Execution timeout (5 minutes)'
+            'error': 'Execution timeout (10 minutes)'
         }), 500
     except Exception as e:
         return jsonify({
@@ -262,6 +330,7 @@ def get_result(result_id):
             output_content = f.read()
 
     log_data['output_content'] = output_content
+    log_data['result_id'] = result_id
     return jsonify(log_data)
 
 
@@ -274,6 +343,34 @@ def download_result(result_id):
         return jsonify({'error': 'File not found'}), 404
 
     return send_file(output_file, as_attachment=True)
+
+
+def detect_sequence_type(sequence):
+    """Detect if sequence is protein or nucleotide"""
+    # Remove whitespace and convert to uppercase
+    seq = sequence.upper().replace(' ', '').replace('\n', '')
+
+    if not seq:
+        return 'Unknown'
+
+    # Count nucleotide and protein specific characters
+    nucleotide_chars = set('ATGCU')
+    protein_specific_chars = set('EFILPQZ')
+
+    total_chars = len(seq)
+    nucleotide_count = sum(1 for c in seq if c in nucleotide_chars)
+    protein_specific_count = sum(1 for c in seq if c in protein_specific_chars)
+
+    # If has protein-specific amino acids, it's definitely protein
+    if protein_specific_count > 0:
+        return 'Proteína'
+
+    # If more than 95% are nucleotides (A, T, G, C, U, N), likely nucleotide
+    if nucleotide_count / total_chars > 0.95:
+        return 'Nucleotídeo'
+
+    # Otherwise, likely protein (could have A, T, G, C which are also amino acids)
+    return 'Proteína'
 
 
 @app.route('/api/sequence_info', methods=['POST'])
@@ -311,13 +408,24 @@ def get_sequence_info():
         if current_seq:
             sequences.append(current_seq)
 
-    # Calculate statistics
+    # Calculate statistics and detect sequence type
+    sequence_types = []
     for seq in sequences:
         seq['length'] = len(seq['sequence'])
+        seq_type = detect_sequence_type(seq['sequence'])
+        seq['type'] = seq_type
+        sequence_types.append(seq_type)
+
+    # Determine overall type (most common)
+    if sequence_types:
+        overall_type = max(set(sequence_types), key=sequence_types.count)
+    else:
+        overall_type = 'Unknown'
 
     return jsonify({
         'num_sequences': len(sequences),
         'sequences': sequences,
+        'sequence_type': overall_type,
         'file_path': str(file_path)
     })
 
@@ -328,12 +436,23 @@ if __name__ == '__main__':
     print("=" * 60)
     print(f"Base directory: {BASE_DIR}")
     print(f"Binaries: {BIN_DIR}")
-    print(f"Sequences: {SEQS_DIR}")
+
+    # List available binaries
+    binaries = get_available_binaries()
+    print("\nAvailable binaries:")
+    print("  A-Star versions:")
+    for binary in binaries['astar']:
+        print(f"    - {binary['name']}")
+    print("  PA-Star versions:")
+    for binary in binaries['pastar']:
+        print(f"    - {binary['name']}")
+
+    print(f"\nSequences: {SEQS_DIR}")
     print("Sources available:")
     for source_key, source_info in SOURCES.items():
         if source_info['path'].exists():
             print(f"  - {source_info['name']}: {source_info['path']}")
-    print(f"Results: {RESULTS_DIR}")
+    print(f"\nResults: {RESULTS_DIR}")
     print("=" * 60)
     print("Starting server on http://localhost:5000")
     print("=" * 60)

@@ -28,6 +28,13 @@
                     </select>
                 </div>
 
+                <div class="form-group">
+                    <label for="binary_version">Versão do Binário:</label>
+                    <select id="binary_version" class="form-control">
+                        <option value="">-- Carregando versões... --</option>
+                    </select>
+                </div>
+
                 <div class="form-group" id="threads-group">
                     <label for="num_threads">Número de Threads:</label>
                     <input type="number" id="num_threads" class="form-control" value="4" min="1" max="128">
@@ -122,11 +129,13 @@
     <script>
         // Data storage
         const sequencesData = {{ all_sequences | tojson }};
+        let availableBinaries = { astar: [], pastar: [] };
         let currentResultId = null;
         let currentFilePath = null;
 
         // Elements
         const algorithmSelect = document.getElementById('algorithm');
+        const binaryVersionSelect = document.getElementById('binary_version');
         const threadsGroup = document.getElementById('threads-group');
         const sourceSelect = document.getElementById('source');
         const categorySelect = document.getElementById('category');
@@ -136,11 +145,51 @@
         const btnRun = document.getElementById('btn-run');
         const btnDownload = document.getElementById('btn-download');
 
+        // Load available binaries
+        async function loadBinaries() {
+            try {
+                const response = await fetch('/api/binaries');
+                availableBinaries = await response.json();
+                updateBinaryVersions();
+            } catch (error) {
+                console.error('Error loading binaries:', error);
+                binaryVersionSelect.innerHTML = '<option value="">Erro ao carregar versões</option>';
+            }
+        }
+
+        // Update binary versions dropdown based on selected algorithm
+        function updateBinaryVersions() {
+            const algorithm = algorithmSelect.value;
+            const binaries = algorithm === 'msa_astar' ? availableBinaries.astar : availableBinaries.pastar;
+
+            binaryVersionSelect.innerHTML = '';
+
+            if (binaries.length === 0) {
+                binaryVersionSelect.innerHTML = '<option value="">Nenhuma versão disponível</option>';
+                binaryVersionSelect.disabled = true;
+                return;
+            }
+
+            binaries.forEach((binary, index) => {
+                const option = document.createElement('option');
+                option.value = binary.name;
+                option.textContent = binary.display_name;
+                if (index === 0) option.selected = true;  // Select first by default
+                binaryVersionSelect.appendChild(option);
+            });
+
+            binaryVersionSelect.disabled = false;
+        }
+
         // Toggle threads input based on algorithm
         algorithmSelect.addEventListener('change', () => {
             threadsGroup.style.display =
                 algorithmSelect.value === 'msa_pastar' ? 'block' : 'none';
+            updateBinaryVersions();
         });
+
+        // Load binaries on page load
+        loadBinaries();
 
         // Helper function to check if an object has files
         function hasFiles(obj) {
@@ -318,6 +367,7 @@
                 if (response.ok) {
                     let html = `
                         <p><strong>Arquivo:</strong> ${data.file_path}</p>
+                        <p><strong>Tipo de Sequência:</strong> ${data.sequence_type}</p>
                         <p><strong>Número de sequências:</strong> ${data.num_sequences}</p>
                         <table class="seq-table">
                             <thead>
@@ -325,6 +375,7 @@
                                     <th>ID</th>
                                     <th>Header</th>
                                     <th>Comprimento</th>
+                                    <th>Tipo</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -336,6 +387,7 @@
                                 <td>${idx + 1}</td>
                                 <td>${seq.header}</td>
                                 <td>${seq.length}</td>
+                                <td>${seq.type}</td>
                             </tr>
                         `;
                     });
@@ -361,6 +413,7 @@
 
             const requestData = {
                 algorithm: algorithmSelect.value,
+                binary_name: binaryVersionSelect.value,  // Add selected binary version
                 sequence_file: sequenceFileSelect.value,
                 file_path: currentFilePath,
                 cost_type: document.getElementById('cost_type').value,
@@ -389,11 +442,13 @@
 
                     document.getElementById('execution-status-content').innerHTML =
                         `<p>✅ Execução concluída com sucesso!</p>
+                         <p><strong>Binário:</strong> ${data.binary}</p>
                          <p><strong>Tempo de execução:</strong> ${data.execution_time.toFixed(2)}s</p>`;
 
                     // Show results
                     document.getElementById('result-stats').innerHTML = `
                         <p><strong>ID:</strong> ${data.result_id}</p>
+                        <p><strong>Binário:</strong> ${data.binary}</p>
                         <p><strong>Tempo:</strong> ${data.execution_time.toFixed(2)}s</p>
                         <p><strong>Código de retorno:</strong> ${data.return_code}</p>
                     `;
@@ -425,43 +480,107 @@
             }
         });
 
+        // Sorting state for history
+        let historySortColumn = null;
+        let historySortDirection = 'desc'; // 'asc' or 'desc'
+        let historyData = [];
+
         // Load execution history
         async function loadHistory() {
             try {
                 const response = await fetch('/api/results');
-                const results = await response.json();
+                historyData = await response.json();
 
-                if (results.length === 0) {
-                    document.getElementById('history-list').innerHTML =
-                        '<p>Nenhuma execução anterior encontrada.</p>';
-                    return;
-                }
-
-                let html = '<table class="history-table"><thead><tr>' +
-                    '<th>ID</th><th>Timestamp</th><th>Tempo (s)</th><th>Status</th><th>Ação</th>' +
-                    '</tr></thead><tbody>';
-
-                results.forEach(result => {
-                    const status = result.return_code === 0 ? '✅' : '❌';
-                    html += `
-                        <tr>
-                            <td>${result.id}</td>
-                            <td>${result.timestamp}</td>
-                            <td>${result.execution_time ? result.execution_time.toFixed(2) : 'N/A'}</td>
-                            <td>${status}</td>
-                            <td>
-                                <button class="btn-small" onclick="loadResult('${result.id}')">Ver</button>
-                                <button class="btn-small" onclick="downloadResult('${result.id}')">⬇️</button>
-                            </td>
-                        </tr>
-                    `;
-                });
-
-                html += '</tbody></table>';
-                document.getElementById('history-list').innerHTML = html;
+                renderHistory();
             } catch (error) {
                 console.error('Error loading history:', error);
             }
+        }
+
+        // Sort history data
+        function sortHistory(column) {
+            if (historySortColumn === column) {
+                // Toggle direction if clicking same column
+                historySortDirection = historySortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                // New column, default to descending
+                historySortColumn = column;
+                historySortDirection = 'desc';
+            }
+
+            renderHistory();
+        }
+
+        // Render history table
+        function renderHistory() {
+            if (historyData.length === 0) {
+                document.getElementById('history-list').innerHTML =
+                    '<p>Nenhuma execução anterior encontrada.</p>';
+                return;
+            }
+
+            // Sort data if a column is selected
+            let sortedData = [...historyData];
+            if (historySortColumn) {
+                sortedData.sort((a, b) => {
+                    let valA, valB;
+
+                    switch (historySortColumn) {
+                        case 'id':
+                            valA = a.id;
+                            valB = b.id;
+                            break;
+                        case 'timestamp':
+                            valA = a.timestamp || '';
+                            valB = b.timestamp || '';
+                            break;
+                        case 'execution_time':
+                            valA = a.execution_time || 0;
+                            valB = b.execution_time || 0;
+                            break;
+                        default:
+                            return 0;
+                    }
+
+                    if (valA < valB) return historySortDirection === 'asc' ? -1 : 1;
+                    if (valA > valB) return historySortDirection === 'asc' ? 1 : -1;
+                    return 0;
+                });
+            }
+
+            // Build table HTML
+            const getSortIndicator = (column) => {
+                if (historySortColumn === column) {
+                    return historySortDirection === 'asc' ? ' ▲' : ' ▼';
+                }
+                return '';
+            };
+
+            let html = '<table class="history-table"><thead><tr>' +
+                `<th class="sortable" onclick="sortHistory('id')">ID${getSortIndicator('id')}</th>` +
+                `<th class="sortable" onclick="sortHistory('timestamp')">Timestamp${getSortIndicator('timestamp')}</th>` +
+                `<th class="sortable" onclick="sortHistory('execution_time')">Tempo (s)${getSortIndicator('execution_time')}</th>` +
+                '<th>Status</th><th>Ação</th>' +
+                '</tr></thead><tbody>';
+
+            sortedData.forEach(result => {
+                const status = result.return_code === 0 ? '✅' : '❌';
+                html += `
+                    <tr>
+                        <td>${result.id}</td>
+                        <td>${result.timestamp}</td>
+                        <td>${result.execution_time ? result.execution_time.toFixed(2) : 'N/A'}</td>
+                        <td>${status}</td>
+                        <td>
+                            <button class="btn-small" onclick="loadResult('${result.id}')">Ver</button>
+                            <button class="btn-small" onclick="downloadResult('${result.id}')">⬇️</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('history-list').innerHTML = html;
         }
 
         async function loadResult(resultId) {

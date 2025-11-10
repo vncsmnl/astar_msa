@@ -329,6 +329,16 @@ pre {
     top: 0;
 }
 
+.history-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease;
+}
+
+.history-table th.sortable:hover {
+    background-color: #e2e8f0;
+}
+
 .history-table tr:hover {
     background: var(--bg-color);
 }
