@@ -1,15 +1,15 @@
 /*!
  * \class HeuristicHPair
- * \author Daniel Sundfeld
+ * \author Daniel Sundfeld and Vinícius Manoel
  * \copyright MIT License
  *
- * \brief Heuristic using all pairwise scores
+ * \brief Heuristic using all trio scores (h3all)
  */
 #ifndef _HEURISTICHPAIR_H
 #define _HEURISTICHPAIR_H
 
 #include "Coord.h"
-#include "PairAlign.h"
+#include "TrioAlign.h"
 #include "Sequences.h"
 #include <thread>
 #include <mutex>
@@ -30,9 +30,9 @@ private:
     static HeuristicHPair instance;
     HeuristicHPair();
     ~HeuristicHPair();
-    std::vector<PairAlign *> mAligns;
+    std::vector<TrioAlign *> mAligns;
 
-    // Pool de threads para cálculo da heurística
+    // Thread pool for heuristic calculation
     mutable std::mutex m_queue_mutex;
     mutable std::condition_variable m_cv;
     std::vector<std::thread> m_threads;

@@ -83,6 +83,7 @@ COMMON_CPP_SRCS += \
     $(SRC_DIR)/Node.cpp \
     $(SRC_DIR)/read_fasta.cpp \
     $(SRC_DIR)/PairAlign.cpp \
+    $(SRC_DIR)/TrioAlign.cpp \
     $(SRC_DIR)/Sequences.cpp \
     $(SRC_DIR)/TimeCounter.cpp \
 

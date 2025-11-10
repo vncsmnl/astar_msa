@@ -1,6 +1,6 @@
 /*!
  * \class HeuristicHPair
- * \author Daniel Sundfeld
+ * \author Daniel Sundfeld and Vinícius Manoel
  * \copyright MIT License
  */
 #include "HeuristicHPair.h"
@@ -10,7 +10,7 @@
 #include <algorithm>
 
 #include "Coord.h"
-#include "PairAlign.h"
+#include "TrioAlign.h"
 #include "Sequences.h"
 #include "TimeCounter.h"
 
@@ -21,14 +21,14 @@ HeuristicHPair::HeuristicHPair()
     : m_stop(false)
 {
     mAligns.clear();
-    // Detects the number of available threads
+    // Detect the number of available threads
     m_num_threads = std::thread::hardware_concurrency();
     if (m_num_threads == 0)
         m_num_threads = 4; // fallback to 4 threads
-    std::cout << "Initializing thread pool with " << m_num_threads << " threads\n";
+    std::cout << "Initializing thread pool with " << m_num_threads << " threads for h3all\n";
 }
 
-//! Free all pairwise alignments
+//! Free all trio alignments
 HeuristicHPair::~HeuristicHPair()
 {
     destroyInstance();
@@ -38,7 +38,7 @@ HeuristicHPair::~HeuristicHPair()
 void HeuristicHPair::destroyInstance()
 {
     destroyThreadPool();
-    for (std::vector<PairAlign *>::iterator it = mAligns.begin(); it != mAligns.end(); ++it)
+    for (std::vector<TrioAlign *>::iterator it = mAligns.begin(); it != mAligns.end(); ++it)
         delete *it;
     mAligns.clear();
 }
@@ -67,56 +67,65 @@ void HeuristicHPair::destroyThreadPool()
 
 /*!
  * Call this function, after all Sequences are loaded.
- * Do the pairwise alignment of all Sequences and set HeuristicHPair
- * as the a-star Heuristic
+ * Do the trio alignment of all Sequences and set HeuristicHPair
+ * as the a-star Heuristic (h3all)
  *
- * Parallelizes the calculation of pairwise alignments using a thread pool
+ * Parallelize the calculation of triplet alignments using a thread pool.
  */
 void HeuristicHPair::init()
 {
-    TimeCounter tp("Phase 1 - init heuristic: ");
+    TimeCounter tp("Phase 1 - init heuristic (h3all): ");
     Sequences *seq = Sequences::getInstance();
     int seq_num = Sequences::get_seq_num();
 
-    std::cout << "Starting pairwise alignments (parallelized with " << m_num_threads << " threads)... " << std::flush;
+    std::cout << "Starting trio alignments (parallelized with " << m_num_threads << " threads)... " << std::flush;
 #ifdef PAIRALIGN_SCORE
     std::cout << std::endl;
 #endif
 
-    // Create task list (sequence pairs)
+    // Create task list (triplets of sequences)
     struct AlignTask
     {
-        int i, j;
-        Pair p;
+        int i, j, k;
+        Trio t;
     };
     std::vector<AlignTask> tasks;
 
-    for (int i = 0; i < seq_num - 1; i++)
+    // Generate all combinations of 3 sequences
+    for (int i = 0; i < seq_num - 2; i++)
     {
-        for (int j = i + 1; j < seq_num; j++)
+        for (int j = i + 1; j < seq_num - 1; j++)
         {
-            AlignTask task;
-            task.i = i;
-            task.j = j;
-            task.p = Pair(i, j);
-            tasks.push_back(task);
+            for (int k = j + 1; k < seq_num; k++)
+            {
+                AlignTask task;
+                task.i = i;
+                task.j = j;
+                task.k = k;
+                task.t = Trio(i, j, k);
+                tasks.push_back(task);
+            }
         }
     }
 
-    // Pre-allocate result vector
+    // Pre-allocate the results vector
     size_t total_tasks = tasks.size();
     mAligns.resize(total_tasks);
 
-    // Mutex to control access to result vector
+    std::cout << "\n[h3all] Number of triplets: " << total_tasks << " (C(" << seq_num << ",3))" << std::endl;
+    std::cout << "[h3all] Each pair appears in (v-2) = " << (seq_num - 2) << " triplets" << std::endl;
+    std::cout << "[h3all] Dividing the sum of triplets by " << (seq_num - 2) << " to obtain an admissible heuristic" << std::endl;
+
+    // Mutex to control access to the results vector (not necessary here, but kept for safety)
     std::mutex result_mutex;
 
-    // Worker function to process tasks
+    // Worker function for processing tasks
     auto worker = [&](size_t start_idx, size_t end_idx)
     {
         for (size_t idx = start_idx; idx < end_idx; ++idx)
         {
             const AlignTask &task = tasks[idx];
-            PairAlign *a = new PairAlign(task.p, seq->get_seq(task.i), seq->get_seq(task.j));
+            TrioAlign *a = new TrioAlign(task.t, seq->get_seq(task.i), seq->get_seq(task.j), seq->get_seq(task.k));
 
             // Store result in the correct position
             mAligns[idx] = a;
@@ -149,27 +158,34 @@ void HeuristicHPair::init()
 }
 
 /*!
- * Return a h-value to the Coord \a c using HPair logic.
- * H is the sum of all pairwise values based on reverse strings.
+ * Return a h-value to the Coord \a c using h3all logic.
+ * H is the average of all trio values based on reverse strings.
  *
- * Parallelizes the calculation when there are many alignments
+ * Each pair of sequences appears in (v-2) different triplets, where v = number of sequences.
+ * Therefore, we divide the sum by the factor (v-2) to obtain an admissible heuristic.
+ *
+ * Parallelize the calculation when there are many alignments
  */
 template <int N>
 int HeuristicHPair::calculate_h(const Coord<N> &c) const
 {
     size_t num_aligns = mAligns.size();
+    int seq_num = Sequences::get_seq_num();
+    int v_minus_2 = seq_num - 2; // Number of triplets in which each pair appears
 
-    // For few alignments, the overhead of threading is not worth it
-    if (num_aligns < 100)
+    // For few alignments, the threading overhead is not worth it
+    if (num_aligns < 50)
     {
         int h = 0;
-        for (std::vector<PairAlign *>::const_iterator it = mAligns.begin(); it != mAligns.end(); ++it)
+        for (std::vector<TrioAlign *>::const_iterator it = mAligns.begin(); it != mAligns.end(); ++it)
         {
-            int x = (*it)->getPair().first;
-            int y = (*it)->getPair().second;
-            h += (*it)->getScore(c[x], c[y]);
+            int x = std::get<0>((*it)->getTrio());
+            int y = std::get<1>((*it)->getTrio());
+            int z = std::get<2>((*it)->getTrio());
+            h += (*it)->getScore(c[x], c[y], c[z]);
         }
-        return h;
+        // Divide by the redundant count (v-2) to obtain the correct average
+        return h / v_minus_2;
     }
 
     // For many alignments, parallelize the calculation
@@ -183,10 +199,11 @@ int HeuristicHPair::calculate_h(const Coord<N> &c) const
         int local_sum = 0;
         for (size_t idx = start_idx; idx < end_idx; ++idx)
         {
-            PairAlign *align = mAligns[idx];
-            int x = align->getPair().first;
-            int y = align->getPair().second;
-            local_sum += align->getScore(c[x], c[y]);
+            TrioAlign *align = mAligns[idx];
+            int x = std::get<0>(align->getTrio());
+            int y = std::get<1>(align->getTrio());
+            int z = std::get<2>(align->getTrio());
+            local_sum += align->getScore(c[x], c[y], c[z]);
         }
         partial_sums[thread_id] = local_sum;
     };
@@ -203,7 +220,7 @@ int HeuristicHPair::calculate_h(const Coord<N> &c) const
         }
     }
 
-    // Wait for all threads to finish
+    // Wait for all threads to finish and sum results
     for (auto &t : threads)
     {
         t.join();
@@ -215,7 +232,7 @@ int HeuristicHPair::calculate_h(const Coord<N> &c) const
         h += partial;
     }
 
-    return h;
+    return h / v_minus_2;
 }
 
 #define DECLARE_TEMPLATE(X) \
