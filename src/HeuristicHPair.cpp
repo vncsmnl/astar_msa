@@ -112,9 +112,9 @@ void HeuristicHPair::init()
     size_t total_tasks = tasks.size();
     mAligns.resize(total_tasks);
 
-    std::cout << "\n[h3all] Number of triplets: " << total_tasks << " (C(" << seq_num << ",3))" << std::endl;
-    std::cout << "[h3all] Each pair appears in (v-2) = " << (seq_num - 2) << " triplets" << std::endl;
-    std::cout << "[h3all] Dividing the sum of triplets by " << (seq_num - 2) << " to obtain an admissible heuristic" << std::endl;
+    std::cout << "\nNumber of triplets: " << total_tasks << " (C(" << seq_num << ",3))" << std::endl;
+    std::cout << "Each pair appears in (v-2) = " << (seq_num - 2) << " triplets" << std::endl;
+    std::cout << "Dividing the sum of triplets by " << (seq_num - 2) << " to obtain an admissible heuristic" << std::endl;
 
     // Mutex to control access to the results vector (not necessary here, but kept for safety)
     std::mutex result_mutex;
