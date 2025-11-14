@@ -52,6 +52,22 @@ SOURCES = {
 }
 
 
+def check_binary_supports_threads(binary_path):
+    """Check if a binary supports the -t/--threads option"""
+    try:
+        result = subprocess.run(
+            [str(binary_path), '--help'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        help_text = result.stdout + result.stderr
+        # Check if help text mentions threads option
+        return '-t' in help_text or '--threads' in help_text
+    except:
+        return False
+
+
 def get_available_binaries():
     """Scan bin directory and return available executables"""
     binaries = {
@@ -66,19 +82,24 @@ def get_available_binaries():
     for binary_file in BIN_DIR.iterdir():
         if binary_file.is_file() and os.access(binary_file, os.X_OK):
             name = binary_file.name
+            
+            # Check if binary supports threads
+            supports_threads = check_binary_supports_threads(binary_file)
 
             # Categorize by algorithm type
             if 'astar' in name.lower() and 'pastar' not in name.lower():
                 binaries['astar'].append({
                     'name': name,
                     'path': str(binary_file),
-                    'display_name': name.replace('msa_astar_', 'A-Star - ').replace('_', ' ').title()
+                    'display_name': name.replace('msa_astar_', 'A-Star - ').replace('_', ' ').title(),
+                    'supports_threads': supports_threads
                 })
             elif 'pastar' in name.lower():
                 binaries['pastar'].append({
                     'name': name,
                     'path': str(binary_file),
-                    'display_name': name.replace('msa_pastar_', 'PA-Star - ').replace('_', ' ').title()
+                    'display_name': name.replace('msa_pastar_', 'PA-Star - ').replace('_', ' ').title(),
+                    'supports_threads': supports_threads
                 })
 
     # Sort by name
@@ -184,20 +205,27 @@ def run_alignment():
     # Get available binaries
     available_binaries = get_available_binaries()
 
-    # Determine which binary to use
+    # Determine which binary to use and if it supports threads
     binary_path = None
+    supports_threads = False
 
     if binary_name:
         # User specified a specific binary
         binary_path = BIN_DIR / binary_name
         if not binary_path.exists() or not os.access(binary_path, os.X_OK):
             return jsonify({'error': f'Binary not found or not executable: {binary_name}'}), 400
+        # Check if this specific binary supports threads
+        supports_threads = check_binary_supports_threads(binary_path)
     else:
         # Use default based on algorithm type
         if algorithm == 'msa_astar' and available_binaries['astar']:
-            binary_path = Path(available_binaries['astar'][0]['path'])
+            binary_info = available_binaries['astar'][0]
+            binary_path = Path(binary_info['path'])
+            supports_threads = binary_info['supports_threads']
         elif algorithm == 'msa_pastar' and available_binaries['pastar']:
-            binary_path = Path(available_binaries['pastar'][0]['path'])
+            binary_info = available_binaries['pastar'][0]
+            binary_path = Path(binary_info['path'])
+            supports_threads = binary_info['supports_threads']
         else:
             return jsonify({'error': 'No binary available for selected algorithm'}), 400
 
@@ -226,8 +254,8 @@ def run_alignment():
     # Add output file
     cmd.extend(['-f', str(output_file)])
 
-    # Add threads for parallel version
-    if 'pastar' in binary_version.lower():
+    # Add threads only if binary supports it
+    if supports_threads:
         cmd.extend(['-t', str(num_threads)])
 
     # Add input file
@@ -255,7 +283,8 @@ def run_alignment():
             'timestamp': timestamp,
             'input_file': str(file_path),
             'cost_type': cost_type,
-            'num_threads': num_threads if 'pastar' in binary_version.lower() else None
+            'num_threads': num_threads if supports_threads else None,
+            'supports_threads': supports_threads
         }
 
         with open(log_file, 'w') as f:
