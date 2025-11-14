@@ -21,7 +21,7 @@ sudo apt-get install build-essential libboost-all-dev
 To compile, you enter the "astar\_msa" folder and type:
 
 ```
-'make'
+'make clean && make'
 ```
 
 This command works on all major Linux distributions and the 'msa\_astar' and 'msa\_pastar' binaries will be available in the 'astar\_msa/bin' folder.
