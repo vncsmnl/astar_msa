@@ -356,10 +356,18 @@
             }
 
             try {
+                const requestData = {
+                    file_path: currentFilePath,
+                    algorithm: algorithmSelect.value,
+                    binary_name: binaryVersionSelect.value,
+                    cost_type: document.getElementById('cost_type').value,
+                    num_threads: parseInt(document.getElementById('num_threads').value)
+                };
+
                 const response = await fetch('/api/sequence_info', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ file_path: currentFilePath })
+                    body: JSON.stringify(requestData)
                 });
 
                 const data = await response.json();
@@ -369,6 +377,19 @@
                         <p><strong>Arquivo:</strong> ${data.file_path}</p>
                         <p><strong>Tipo de Sequência:</strong> ${data.sequence_type}</p>
                         <p><strong>Número de sequências:</strong> ${data.num_sequences}</p>
+                    `;
+
+                    // Show command if available
+                    if (data.command) {
+                        html += `
+                            <div class="command-box">
+                                <strong>Comando a ser executado:</strong>
+                                <pre><code>${data.command}</code></pre>
+                            </div>
+                        `;
+                    }
+
+                    html += `
                         <table class="seq-table">
                             <thead>
                                 <tr>

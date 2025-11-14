@@ -5,6 +5,7 @@ Sequence management routes
 from flask import Blueprint, jsonify, request
 from pathlib import Path
 from app.services.sequences_service import scan_all_sequences
+from app.services.binaries_service import get_binary_path
 from app.utils.fasta import parse_fasta_file, analyze_sequences
 
 sequences_bp = Blueprint('sequences', __name__)
@@ -22,6 +23,10 @@ def get_sequence_info():
     """Get information about a sequence file"""
     data = request.json
     file_path_str = data.get('file_path')
+    algorithm = data.get('algorithm', 'msa_astar')
+    binary_name = data.get('binary_name')
+    cost_type = data.get('cost_type', 'PAM250')
+    num_threads = data.get('num_threads', 4)
 
     if not file_path_str:
         return jsonify({'error': 'File path not provided'}), 400
@@ -37,9 +42,29 @@ def get_sequence_info():
     # Analyze sequences
     overall_type = analyze_sequences(sequences)
 
+    # Build example command
+    command = None
+    try:
+        if binary_name:
+            binary_path, supports_threads = get_binary_path(
+                binary_name=binary_name,
+                algorithm=algorithm
+            )
+            cmd = [str(binary_path)]
+            cmd.extend(['-c', cost_type])
+            cmd.extend(['-f', '<output.fasta>'])
+            if supports_threads:
+                cmd.extend(['-t', str(num_threads)])
+            cmd.append(str(file_path))
+            command = ' '.join(cmd)
+    except Exception:
+        # If binary not selected, show generic command
+        pass
+
     return jsonify({
         'num_sequences': len(sequences),
         'sequences': sequences,
         'sequence_type': overall_type,
-        'file_path': str(file_path)
+        'file_path': str(file_path),
+        'command': command
     })
