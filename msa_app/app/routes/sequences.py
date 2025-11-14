@@ -50,13 +50,11 @@ def get_sequence_info():
                 binary_name=binary_name,
                 algorithm=algorithm
             )
-            cmd = [str(binary_path)]
-            cmd.extend(['-c', cost_type])
-            cmd.extend(['-f', '<output.fasta>'])
+            cmd_parts = [str(binary_path), '-c', cost_type]
             if supports_threads:
-                cmd.extend(['-t', str(num_threads)])
-            cmd.append(str(file_path))
-            command = ' '.join(cmd)
+                cmd_parts.extend(['-t', str(num_threads)])
+            cmd_parts.append(str(file_path))
+            command = ' '.join(cmd_parts)
     except Exception:
         # If binary not selected, show generic command
         pass
