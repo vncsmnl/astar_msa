@@ -16,14 +16,15 @@
 #include "PAStar.h"
 #include "version.h"
 
-#if BOOST_VERSION<103200
+#if BOOST_VERSION < 103200
 #error "This file requires libboost 1_32 or greater"
 #endif
 
 namespace po = boost::program_options;
 
 //! Arguments parse core functions
-int msa_options_core(msa_option_type type, int argc, char *argv[], std::string &filename, PAStarOpt &opt)
+int msa_options_core(
+    msa_option_type type, int argc, char *argv[], std::string &filename, PAStarOpt &opt)
 {
     const std::string description = "Usage " + std::string(argv[0]) + " [OPTIONS] file.fasta";
     std::string cost_read;
@@ -34,38 +35,47 @@ int msa_options_core(msa_option_type type, int argc, char *argv[], std::string &
 
     // Arguments Options
     po::options_description common_options("Options");
-    common_options.add_options()
-        ("version,v", "print version string")
-        ("help,h", "produce help message")
-        ("cost_type,c", po::value<std::string>(&cost_read)->default_value("PAM250"),
-         "Match and mismatches costs (NUC for nucleotides, PAM250 for proteins) [NUC|PAM250]")
-        ("fasta_output,f", po::value<std::string>(&fasta)->default_value(""),
-         "Also write the output in fasta format on the file with the name")
-        ("memory_debug", "memory debug option") /* Force quit should be used only for debug purposes. Check the struct for
-                                   full explanation, it is good to not explain to the users what it does. */
+    common_options.add_options()("version,v", "print version string")("help,h",
+                                                                      "produce help message")(
+        "cost_type,c",
+        po::value<std::string>(&cost_read)->default_value("PAM250"),
+        "Match and mismatches costs (NUC for nucleotides, PAM250 for proteins) [NUC|PAM250]")(
+        "fasta_output,f",
+        po::value<std::string>(&fasta)->default_value(""),
+        "Also write the output in fasta format on the file with the name")(
+        "log_file,l",
+        po::value<std::string>(&opt.log_file)->default_value(""),
+        "Write detailed execution log to the specified file")(
+        "verbose", "Enable verbose output with iteration details")("memory_debug",
+                                                                   "memory debug option")
+        /* Force quit should be used only for debug purposes. Check the struct for
+           full explanation; it is good not to explain to the users what it does. */
         ;
 
     // Parallel Options
     po::options_description parallel_options("Parallel Options");
-    parallel_options.add_options()
-        ("threads,t", po::value<int>(&opt.threads_num)->default_value(opt.threads_num),
-         "number of threads")
-        ("affinity,a", po::value<std::string>(&affinity_read),
-         "Comma-separated values to set the affinity of each thread, e.g. 0,1,2,3")
-        ("hybrid-conf", po::value<std::string>(&hybrid_read),
-         "4 Comma-separated values containing: Power Cores Number, Power Cores thread_map size, Energy Cores Numbers, Energy Cores thread_map size, e.g. 8,9,8,7")
-        ("no-affinity", "Do not set thread affinity (force to ignore the affinity argument)")
-        ("hash_shift,s", po::value<int>(&opt.hash_shift)->default_value(opt.hash_shift),
-         "Hash shift option value")
-        ("hash_type,y", po::value<std::string>(&hash_read)->default_value("FZORDER"),
-         "Hash type [FZORDER|FSUM|PZORDER|PSUM]")
-        ;
+
+    parallel_options.add_options()("threads,t",
+                                   po::value<int>(&opt.threads_num)->default_value(opt.threads_num),
+                                   "number of threads")(
+        "affinity,a",
+        po::value<std::string>(&affinity_read),
+        "Comma-separated values to set the affinity of each thread, e.g. 0,1,2,3")(
+        "hybrid-conf",
+        po::value<std::string>(&hybrid_read),
+        "4 Comma-separated values containing: Power Cores Number, Power Cores thread_map size, "
+        "Energy Cores Numbers, Energy Cores thread_map size, e.g. 8,9,8,7")(
+        "no-affinity", "Do not set thread affinity (force to ignore the affinity argument)")(
+        "hash_shift,s",
+        po::value<int>(&opt.hash_shift)->default_value(opt.hash_shift),
+        "Hash shift option value")("hash_type,y",
+                                   po::value<std::string>(&hash_read)->default_value("FZORDER"),
+                                   "Hash type [FZORDER|FSUM|PZORDER|PSUM]");
 
     // Fasta File Name
     po::options_description input_fasta_file;
-    input_fasta_file.add_options()
-        ("file.fasta", po::value<std::string>(&filename), "fasta filename")
-        ;
+    input_fasta_file.add_options()(
+        "file.fasta", po::value<std::string>(&filename), "fasta filename");
 
     // Acceptable arguments
     po::options_description all_options;
@@ -85,8 +95,7 @@ int msa_options_core(msa_option_type type, int argc, char *argv[], std::string &
 
     // Now, parse
     po::variables_map vm;
-    store(po::command_line_parser(argc, argv).
-            options(all_options).positional(p).run(), vm);
+    store(po::command_line_parser(argc, argv).options(all_options).positional(p).run(), vm);
     notify(vm);
 
     // And now, verify
@@ -114,7 +123,8 @@ int msa_options_core(msa_option_type type, int argc, char *argv[], std::string &
     {
         opt.common_options.fasta_output_file = fasta;
     }
-    if (vm.count("version")) {
+    if (vm.count("version"))
+    {
         if (type == Msa_Pastar)
             std::cout << "msa_pastar";
         else if (type == Msa_Astar)
@@ -151,7 +161,9 @@ int msa_options_core(msa_option_type type, int argc, char *argv[], std::string &
 
         size_t t_num = opt.threads_num;
         if (opt.thread_affinity.size() < t_num)
-            std::cerr << "Warning: thread affinity set smaller than the number of threads. Setting default values." << std::endl;
+            std::cerr << "Warning: thread affinity set smaller than the number of threads. Setting "
+                         "default values."
+                      << std::endl;
         for (size_t i = opt.thread_affinity.size(); i < t_num; ++i)
             opt.thread_affinity.push_back(i);
     }
@@ -176,7 +188,9 @@ int msa_options_core(msa_option_type type, int argc, char *argv[], std::string &
         opt.hybrid_conf.e_cores_size = std::stoi(tmp);
         if (opt.threads_num != opt.hybrid_conf.p_cores_num + opt.hybrid_conf.e_cores_num)
         {
-            std::cerr << "Invalid Hybrid conf: P_cores_num + E_cores_num must be equal to threads_num" << std::endl;
+            std::cerr
+                << "Invalid Hybrid conf: P_cores_num + E_cores_num must be equal to threads_num"
+                << std::endl;
             exit(1);
         }
     }
@@ -192,6 +206,18 @@ int msa_options_core(msa_option_type type, int argc, char *argv[], std::string &
         opt.common_options.force_quit = true;
     else
         opt.common_options.force_quit = false;
+
+    if (vm.count("verbose"))
+    {
+        opt.verbose = true;
+        opt.common_options.verbose = true;
+    }
+
+    if (vm.count("log_file"))
+    {
+        opt.common_options.log_file = opt.log_file;
+    }
+
     return 0;
 }
 
@@ -207,7 +233,7 @@ int msa_astar_options(int argc, char *argv[], std::string &filename, AStarOpt &o
     PAStarOpt pastar_opt;
     int ret;
 
-    ret  = msa_options(Msa_Astar, argc, argv, filename, pastar_opt);
+    ret = msa_options(Msa_Astar, argc, argv, filename, pastar_opt);
     opt = pastar_opt.common_options;
     return ret;
 }
@@ -219,10 +245,11 @@ int msa_options(msa_option_type type, int argc, char *argv[], std::string &filen
     {
         return msa_options_core(type, argc, argv, filename, opt);
     }
-#if BOOST_VERSION>104100
+#if BOOST_VERSION > 104100
     catch (boost::program_options::multiple_occurrences &e)
     {
-        std::cerr << "Invalid argument: " << e.what() << " from option: " << e.get_option_name() << std::endl;
+        std::cerr << "Invalid argument: " << e.what() << " from option: " << e.get_option_name()
+                  << std::endl;
     }
 #endif
     catch (std::exception &e)

@@ -8,7 +8,9 @@
 #include "AStar.h"
 
 #include <boost/unordered_map.hpp>
+#include <fstream>
 #include <iostream>
+#include <sstream>
 #include <vector>
 
 #include "backtrace.h"
@@ -43,15 +45,35 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt
 {
     Node<N> current;
     PriorityList<N> OpenList;
-    boost::unordered_map< Coord<N>, Node<N> > ClosedList;
-    std::vector< Node<N> > neigh;
+    boost::unordered_map<Coord<N>, Node<N>> ClosedList;
+    std::vector<Node<N>> neigh;
     TimeCounter *t = new TimeCounter("\nPhase 2: A-Star running time: ");
+
+    // Initialize log file if specified
+    std::ofstream *log_stream = nullptr;
+    int iteration = 0;
+
+    if (!options.log_file.empty())
+    {
+        log_stream = new std::ofstream(options.log_file);
+        if (!log_stream->is_open())
+        {
+            std::cerr << "Error opening log file: " << options.log_file << std::endl;
+            delete log_stream;
+            log_stream = nullptr;
+        }
+        else
+        {
+            *log_stream << "A-Star Execution Log\n";
+            *log_stream << "Single-threaded execution\n\n";
+        }
+    }
 
     OpenList.enqueue(node_zero);
 
     while (!OpenList.empty())
     {
-        typename boost::unordered_map< Coord<N>, Node<N> >::iterator c_search;
+        typename boost::unordered_map<Coord<N>, Node<N>>::iterator c_search;
 
         OpenList.dequeue(current);
 
@@ -62,14 +84,15 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt
                 continue;
         }
 
-        //std::cout << "Opening node:\t" << current << std::endl;
+        if (options.verbose)
+            std::cout << "Opening node:\t" << current << std::endl;
         ClosedList[current.pos] = current;
 
         if (current.pos == coord_final)
             break;
 
         current.getNeigh(&neigh);
-        for (typename std::vector< Node<N> >::iterator it = neigh.begin() ; it != neigh.end(); ++it)
+        for (typename std::vector<Node<N>>::iterator it = neigh.begin(); it != neigh.end(); ++it)
         {
             if ((c_search = ClosedList.find(it->pos)) != ClosedList.end())
             {
@@ -79,11 +102,37 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt
             }
 
             OpenList.conditional_enqueue(*it);
-            //std::cout << "Adding:\t" << *it << "from\t" << current << std::endl;
+
+            // Log node addition
+            if ((options.verbose || log_stream) && !options.log_file.empty())
+            {
+                iteration++;
+                std::ostringstream log_line;
+                log_line << "0\t" << iteration << "\tAdding:\t" << it->pos << "\tg(" << it->get_g()
+                         << ") h(" << it->get_h() << ") f(" << it->get_f() << ")\n";
+
+                if (log_stream)
+                {
+                    *log_stream << log_line.str();
+                }
+                if (options.verbose)
+                {
+                    std::cout << log_line.str();
+                }
+            }
         }
         neigh.clear();
     }
     delete t;
+
+    // Write Phase 2 marker and close log
+    if (log_stream)
+    {
+        *log_stream << "\nPhase 2: A-Star completed\n\n";
+        log_stream->close();
+        delete log_stream;
+    }
+
     backtrace<N>(&ClosedList, options.fasta_output_file);
 
     if (options.force_quit)
@@ -91,7 +140,7 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt
     return 0;
 }
 
-#define A_STAR_DECLARE_TEMPLATE( X ) \
-template int a_star< X >(const Node< X > &node_zero, const Coord< X > &coord_final, const AStarOpt &options); \
+#define A_STAR_DECLARE_TEMPLATE(X) \
+    template int a_star<X>(const Node<X> &node_zero, const Coord<X> &coord_final, const AStarOpt &options);
 
 MAX_NUM_SEQ_HELPER(A_STAR_DECLARE_TEMPLATE);

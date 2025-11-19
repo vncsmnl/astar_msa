@@ -9,7 +9,8 @@
 #include "Coord.h"
 #include "Node.h"
 
-struct AStarOpt {
+struct AStarOpt
+{
     /*!
      * Calling all destructors in the OpenList and the Global Memory might be
      * really time consuming. If only one alignment is done, we might exit(0)
@@ -17,18 +18,25 @@ struct AStarOpt {
      */
     bool force_quit;
     std::string fasta_output_file;
+    std::string log_file;
+    bool verbose;
 
     AStarOpt()
     {
         force_quit = true;
         fasta_output_file = "";
+        log_file = "";
+        verbose = false;
     }
     AStarOpt(bool force)
     {
         force_quit = force;
         fasta_output_file = "";
+        log_file = "";
+        verbose = false;
     }
 };
 
-template <int N> int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt &options);
+template <int N>
+int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt &options);
 #endif

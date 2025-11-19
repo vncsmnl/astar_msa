@@ -25,13 +25,14 @@
 #include "PriorityList.h"
 
 #ifndef THREADS_NUM
-    #define THREADS_NUM std::thread::hardware_concurrency()
+#define THREADS_NUM std::thread::hardware_concurrency()
 #endif
 
 /*!
  * \brief Configuration for Hybrid CPUs
  */
-struct HybridCpu {
+struct HybridCpu
+{
     int p_cores_num = 0;
     int p_cores_size = 0;
     int e_cores_num = 0;
@@ -41,7 +42,8 @@ struct HybridCpu {
 /*!
  * \brief Arguments for PAStar class
  */
-struct PAStarOpt {
+struct PAStarOpt
+{
     AStarOpt common_options;
     hashType hash_type;
     int hash_shift;
@@ -49,6 +51,8 @@ struct PAStarOpt {
     bool no_affinity;
     std::vector<int> thread_affinity;
     HybridCpu hybrid_conf;
+    std::string log_file;
+    bool verbose;
 
     PAStarOpt()
     {
@@ -56,6 +60,8 @@ struct PAStarOpt {
         hash_shift = HASH_SHIFT;
         threads_num = THREADS_NUM;
         no_affinity = false;
+        log_file = "";
+        verbose = false;
     }
     PAStarOpt(AStarOpt &common, hashType type, int shift, int th, bool noaf)
     {
@@ -67,61 +73,65 @@ struct PAStarOpt {
     }
 };
 
-template < int N >
-class PAStar {
-    public:
-        static int pa_star(const Node<N> &node_zero, const Coord<N> &coord_final, const PAStarOpt &options);
+template <int N>
+class PAStar
+{
+public:
+    static int pa_star(const Node<N> &node_zero, const Coord<N> &coord_final, const PAStarOpt &options);
 
-    private:
-        // Members
-        const PAStarOpt m_options;
-        PriorityList<N> *OpenList;
-        boost::unordered_map< Coord<N>, Node<N> > *ClosedList;
+private:
+    // Members
+    const PAStarOpt m_options;
+    PriorityList<N> *OpenList;
+    boost::unordered_map<Coord<N>, Node<N>> *ClosedList;
+    std::ofstream *log_stream;
+    std::atomic<int> iteration_counter;
+    std::mutex log_mutex; // Mutex to protect log writes
 
-        long long int *nodes_reopen;
-        long long int *nodes_processed;
-        int *thread_map;
-        int map_size;
+    long long int *nodes_reopen;
+    long long int *nodes_processed;
+    int *thread_map;
+    int map_size;
 
-        std::mutex *queue_mutex;
-        std::condition_variable *queue_condition;
-        std::vector< Node<N> > *queue_nodes;
+    std::mutex *queue_mutex;
+    std::condition_variable *queue_condition;
+    std::vector<Node<N>> *queue_nodes;
 
-        std::atomic<bool> end_cond;
+    std::atomic<bool> end_cond;
 
-        std::mutex final_node_mutex;
-        Node<N> final_node;
-        std::atomic<int> final_node_count;
+    std::mutex final_node_mutex;
+    Node<N> final_node;
+    std::atomic<int> final_node_count;
 
-        std::mutex sync_mutex;
-        std::atomic<int> sync_count;
-        std::condition_variable sync_condition;
+    std::mutex sync_mutex;
+    std::atomic<int> sync_count;
+    std::condition_variable sync_condition;
 
-        // Constructor
-        PAStar(const Node<N> &node_zero, const PAStarOpt &opt);
-        ~PAStar();
+    // Constructor
+    PAStar(const Node<N> &node_zero, const PAStarOpt &opt);
+    ~PAStar();
 
-        // Misc functions
-        void configure_thread_map();
-        int set_affinity(int tid);
-        void sync_threads();
-        void print_nodes_count();
+    // Misc functions
+    void configure_thread_map();
+    int set_affinity(int tid);
+    void sync_threads();
+    void print_nodes_count();
 
-        // Queue functions
-        void enqueue(int tid, std::vector< Node<N> > &nodes);
-        void consume_queue(int tid);
-        void wait_queue(int tid);
-        void wake_all_queue();
+    // Queue functions
+    void enqueue(int tid, std::vector<Node<N>> &nodes);
+    void consume_queue(int tid);
+    void wait_queue(int tid);
+    void wake_all_queue();
 
-        // End functions
-        void process_final_node(int tid, const Node<N> &n);
-        bool check_stop(int tid);
+    // End functions
+    void process_final_node(int tid, const Node<N> &n);
+    bool check_stop(int tid);
 
-        // Worker Functions
-        void worker_inner(int tid, const Coord<N> &coord_final);
-        int worker(int tid, const Coord<N> &coord_final);
+    // Worker Functions
+    void worker_inner(int tid, const Coord<N> &coord_final);
+    int worker(int tid, const Coord<N> &coord_final);
 
-        // Backtrack
-        void print_answer();
+    // Backtrack
+    void print_answer();
 };
 #endif
