@@ -27,6 +27,7 @@ def get_sequence_info():
     binary_name = data.get('binary_name')
     cost_type = data.get('cost_type', 'PAM250')
     num_threads = data.get('num_threads', 4)
+    verbose = data.get('verbose', False)
 
     if not file_path_str:
         return jsonify({'error': 'File path not provided'}), 400
@@ -53,6 +54,8 @@ def get_sequence_info():
             cmd_parts = [str(binary_path), '-c', cost_type]
             if supports_threads:
                 cmd_parts.extend(['-t', str(num_threads)])
+            if verbose:
+                cmd_parts.append('-l')
             cmd_parts.append(str(file_path))
             command = ' '.join(cmd_parts)
     except Exception:

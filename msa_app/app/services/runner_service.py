@@ -15,10 +15,13 @@ from app.services.binaries_service import get_binary_path
 RESULTS_DIR.mkdir(exist_ok=True)
 
 
-def run_alignment(binary_name, algorithm, file_path, cost_type='PAM250', num_threads=4):
+def run_alignment(binary_name, algorithm, file_path, cost_type='PAM250', num_threads=4, verbose=False):
     """
     Execute MSA alignment
-    
+
+    Args:
+        verbose: If True, include -l flag for verbose output
+
     Returns:
         dict: Result information including execution time, output, etc.
     """
@@ -39,6 +42,7 @@ def run_alignment(binary_name, algorithm, file_path, cost_type='PAM250', num_thr
     result_id = f"{binary_version}_{timestamp}"
     output_file = RESULTS_DIR / f"{result_id}.fasta"
     log_file = RESULTS_DIR / f"{result_id}.log"
+    verbose_log_file = RESULTS_DIR / f"{result_id}_verbose.txt" if verbose else None
 
     # Build command
     cmd = [str(binary_path)]
@@ -52,6 +56,10 @@ def run_alignment(binary_name, algorithm, file_path, cost_type='PAM250', num_thr
     # Add threads only if binary supports it
     if supports_threads:
         cmd.extend(['-t', str(num_threads)])
+
+    # Add verbose flag and log file if requested
+    if verbose and verbose_log_file:
+        cmd.extend(['-l', str(verbose_log_file)])
 
     # Add input file
     cmd.append(str(file_path))
@@ -78,7 +86,9 @@ def run_alignment(binary_name, algorithm, file_path, cost_type='PAM250', num_thr
         'input_file': str(file_path),
         'cost_type': cost_type,
         'num_threads': num_threads if supports_threads else None,
-        'supports_threads': supports_threads
+        'supports_threads': supports_threads,
+        'verbose': verbose,
+        'verbose_log_file': str(verbose_log_file) if verbose_log_file else None
     }
 
     with open(log_file, 'w') as f:
@@ -90,6 +100,12 @@ def run_alignment(binary_name, algorithm, file_path, cost_type='PAM250', num_thr
         with open(output_file, 'r') as f:
             output_content = f.read()
 
+    # Read verbose log if it exists
+    verbose_log_content = ""
+    if verbose_log_file and verbose_log_file.exists():
+        with open(verbose_log_file, 'r') as f:
+            verbose_log_content = f.read()
+
     return {
         'success': True,
         'result_id': result_id,
@@ -99,5 +115,7 @@ def run_alignment(binary_name, algorithm, file_path, cost_type='PAM250', num_thr
         'stderr': result.stderr,
         'output_file': str(output_file),
         'output_content': output_content,
-        'return_code': result.returncode
+        'return_code': result.returncode,
+        'verbose': verbose,
+        'verbose_log_content': verbose_log_content
     }

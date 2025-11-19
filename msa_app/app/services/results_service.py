@@ -13,6 +13,10 @@ def list_results():
     results = []
 
     for log_file in sorted(RESULTS_DIR.glob('*.log'), reverse=True):
+        # Skip verbose log files
+        if log_file.stem.endswith('_verbose'):
+            continue
+
         try:
             with open(log_file, 'r') as f:
                 log_data = json.load(f)
@@ -32,6 +36,7 @@ def get_result(result_id):
     """Get specific result details"""
     log_file = RESULTS_DIR / f"{result_id}.log"
     output_file = RESULTS_DIR / f"{result_id}.fasta"
+    verbose_log_file = RESULTS_DIR / f"{result_id}_verbose.log"
 
     if not log_file.exists():
         raise FileNotFoundError('Result not found')
@@ -44,9 +49,15 @@ def get_result(result_id):
         with open(output_file, 'r') as f:
             output_content = f.read()
 
+    verbose_log_content = ""
+    if verbose_log_file.exists():
+        with open(verbose_log_file, 'r') as f:
+            verbose_log_content = f.read()
+
     log_data['output_content'] = output_content
+    log_data['verbose_log_content'] = verbose_log_content
     log_data['result_id'] = result_id
-    
+
     return log_data
 
 

@@ -19,6 +19,7 @@ def run_alignment_route():
     file_path_str = data.get('file_path')
     cost_type = data.get('cost_type', 'PAM250')
     num_threads = data.get('num_threads', 4)
+    verbose = data.get('verbose', False)
 
     if not file_path_str:
         return jsonify({'error': 'File path not provided'}), 400
@@ -29,7 +30,8 @@ def run_alignment_route():
             algorithm=algorithm,
             file_path=file_path_str,
             cost_type=cost_type,
-            num_threads=num_threads
+            num_threads=num_threads,
+            verbose=verbose
         )
         return jsonify(result)
     except FileNotFoundError as e:

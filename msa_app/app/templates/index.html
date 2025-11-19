@@ -48,6 +48,13 @@
                     </select>
                 </div>
 
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="verbose_mode" value="1">
+                        Modo Verbose
+                    </label>
+                </div>
+
                 <h3>📁 Sequências</h3>
 
                 <div class="form-group">
@@ -115,6 +122,10 @@
                     <div class="result-logs">
                         <h4>Log da Execução:</h4>
                         <pre id="log-content"></pre>
+                    </div>
+                    <div class="result-logs" id="verbose-logs-section" style="display: none;">
+                        <h4>Log Verbose (-l):</h4>
+                        <pre id="verbose-log-content"></pre>
                     </div>
                 </div>
 
@@ -361,7 +372,8 @@
                     algorithm: algorithmSelect.value,
                     binary_name: binaryVersionSelect.value,
                     cost_type: document.getElementById('cost_type').value,
-                    num_threads: parseInt(document.getElementById('num_threads').value)
+                    num_threads: parseInt(document.getElementById('num_threads').value),
+                    verbose: document.getElementById('verbose_mode').checked
                 };
 
                 const response = await fetch('/api/sequence_info', {
@@ -438,7 +450,8 @@
                 sequence_file: sequenceFileSelect.value,
                 file_path: currentFilePath,
                 cost_type: document.getElementById('cost_type').value,
-                num_threads: parseInt(document.getElementById('num_threads').value)
+                num_threads: parseInt(document.getElementById('num_threads').value),
+                verbose: document.getElementById('verbose_mode').checked
             };
 
             // Show status
@@ -476,6 +489,15 @@
 
                     document.getElementById('output-content').textContent = data.output_content;
                     document.getElementById('log-content').textContent = data.stdout;
+
+                    // Show verbose log if available
+                    if (data.verbose && data.verbose_log_content) {
+                        document.getElementById('verbose-log-content').textContent = data.verbose_log_content;
+                        document.getElementById('verbose-logs-section').style.display = 'block';
+                    } else {
+                        document.getElementById('verbose-logs-section').style.display = 'none';
+                    }
+
                     document.getElementById('results-content').style.display = 'block';
 
                     // Refresh history
@@ -626,6 +648,15 @@
 
                     document.getElementById('output-content').textContent = data.output_content;
                     document.getElementById('log-content').textContent = data.stdout;
+
+                    // Show verbose log if available
+                    if (data.verbose && data.verbose_log_content) {
+                        document.getElementById('verbose-log-content').textContent = data.verbose_log_content;
+                        document.getElementById('verbose-logs-section').style.display = 'block';
+                    } else {
+                        document.getElementById('verbose-logs-section').style.display = 'none';
+                    }
+
                     document.getElementById('results-content').style.display = 'block';
                 }
             } catch (error) {
