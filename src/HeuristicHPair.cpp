@@ -25,7 +25,7 @@ HeuristicHPair::HeuristicHPair()
     m_num_threads = std::thread::hardware_concurrency();
     if (m_num_threads == 0)
         m_num_threads = 4; // fallback to 4 threads
-    std::cout << "Initializing thread pool with " << m_num_threads << " threads for h3all\n";
+    std::cout << "Initializing thread pool with " << m_num_threads << " threads\n";
 }
 
 //! Free all trio alignments
@@ -113,7 +113,7 @@ void HeuristicHPair::init()
     mAligns.resize(total_tasks);
 
     std::cout << "\nNumber of triplets: " << total_tasks << " (C(" << seq_num << ",3))" << std::endl;
-    std::cout << "Each pair appears in (v-2) = " << (seq_num - 2) << " triplets" << std::endl;
+    std::cout << "Each pair appears in (seq_num-2) = " << (seq_num - 2) << " triplets" << std::endl;
     std::cout << "Dividing the sum of triplets by " << (seq_num - 2) << " to obtain an admissible heuristic" << std::endl;
 
     // Mutex to control access to the results vector (not necessary here, but kept for safety)
@@ -161,8 +161,8 @@ void HeuristicHPair::init()
  * Return a h-value to the Coord \a c using h3all logic.
  * H is the average of all trio values based on reverse strings.
  *
- * Each pair of sequences appears in (v-2) different triplets, where v = number of sequences.
- * Therefore, we divide the sum by the factor (v-2) to obtain an admissible heuristic.
+ * Each pair of sequences appears in (seq_num-2) different triplets.
+ * Therefore, we divide the sum by the factor (seq_num-2) to obtain an admissible heuristic.
  *
  * Parallelize the calculation when there are many alignments
  */
@@ -184,7 +184,7 @@ int HeuristicHPair::calculate_h(const Coord<N> &c) const
             int z = std::get<2>((*it)->getTrio());
             h += (*it)->getScore(c[x], c[y], c[z]);
         }
-        // Divide by the redundant count (v-2) to obtain the correct average
+        // Divide by the redundant count (seq_num-2) to obtain the correct average
         return h / v_minus_2;
     }
 
