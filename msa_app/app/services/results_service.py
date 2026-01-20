@@ -20,11 +20,15 @@ def list_results():
         try:
             with open(log_file, 'r') as f:
                 log_data = json.load(f)
+                # Extract just the filename from the input_file path
+                input_file = log_data.get('input_file', '')
+                input_filename = Path(input_file).name if input_file else 'N/A'
                 results.append({
                     'id': log_file.stem,
                     'timestamp': log_data.get('timestamp'),
                     'execution_time': log_data.get('execution_time'),
-                    'return_code': log_data.get('return_code')
+                    'return_code': log_data.get('return_code'),
+                    'input_file': input_filename
                 })
         except:
             pass
@@ -69,3 +73,23 @@ def get_result_file_path(result_id):
         raise FileNotFoundError('File not found')
 
     return output_file
+
+
+def delete_result(result_id):
+    """Delete a result and all associated files"""
+    log_file = RESULTS_DIR / f"{result_id}.log"
+    output_file = RESULTS_DIR / f"{result_id}.fasta"
+    verbose_log_file = RESULTS_DIR / f"{result_id}_verbose.log"
+    verbose_txt_file = RESULTS_DIR / f"{result_id}_verbose.txt"
+
+    if not log_file.exists():
+        raise FileNotFoundError('Result not found')
+
+    # Delete all associated files
+    deleted_files = []
+    for file_path in [log_file, output_file, verbose_log_file, verbose_txt_file]:
+        if file_path.exists():
+            file_path.unlink()
+            deleted_files.append(file_path.name)
+
+    return deleted_files

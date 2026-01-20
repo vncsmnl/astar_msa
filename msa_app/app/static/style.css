@@ -223,6 +223,14 @@ header h1 {
     background: #475569;
 }
 
+.btn-small.btn-danger {
+    background: #dc2626;
+}
+
+.btn-small.btn-danger:hover {
+    background: #b91c1c;
+}
+
 .info-box,
 .status-box {
     background: var(--bg-color);

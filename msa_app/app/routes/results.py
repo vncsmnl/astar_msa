@@ -3,7 +3,7 @@ Results management routes
 """
 
 from flask import Blueprint, jsonify, send_file
-from app.services.results_service import list_results, get_result, get_result_file_path
+from app.services.results_service import list_results, get_result, get_result_file_path, delete_result
 
 results_bp = Blueprint('results', __name__)
 
@@ -33,3 +33,17 @@ def download_result(result_id):
         return send_file(output_file, as_attachment=True)
     except FileNotFoundError:
         return jsonify({'error': 'File not found'}), 404
+
+
+@results_bp.route('/api/result/<result_id>', methods=['DELETE'])
+def delete_result_route(result_id):
+    """Delete a result and all associated files"""
+    try:
+        deleted_files = delete_result(result_id)
+        return jsonify({
+            'success': True,
+            'message': 'Result deleted successfully',
+            'deleted_files': deleted_files
+        })
+    except FileNotFoundError:
+        return jsonify({'error': 'Result not found'}), 404

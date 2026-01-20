@@ -581,6 +581,10 @@
                             valA = a.execution_time || 0;
                             valB = b.execution_time || 0;
                             break;
+                        case 'input_file':
+                            valA = a.input_file || '';
+                            valB = b.input_file || '';
+                            break;
                         default:
                             return 0;
                     }
@@ -601,6 +605,7 @@
 
             let html = '<table class="history-table"><thead><tr>' +
                 `<th class="sortable" onclick="sortHistory('id')">ID${getSortIndicator('id')}</th>` +
+                `<th class="sortable" onclick="sortHistory('input_file')">Arquivo${getSortIndicator('input_file')}</th>` +
                 `<th class="sortable" onclick="sortHistory('timestamp')">Timestamp${getSortIndicator('timestamp')}</th>` +
                 `<th class="sortable" onclick="sortHistory('execution_time')">Tempo (s)${getSortIndicator('execution_time')}</th>` +
                 '<th>Status</th><th>Ação</th>' +
@@ -608,15 +613,18 @@
 
             sortedData.forEach(result => {
                 const status = result.return_code === 0 ? '✅' : '❌';
+                const inputFile = result.input_file || 'N/A';
                 html += `
                     <tr>
                         <td>${result.id}</td>
+                        <td title="${inputFile}">${inputFile}</td>
                         <td>${result.timestamp}</td>
                         <td>${result.execution_time ? result.execution_time.toFixed(2) : 'N/A'}</td>
                         <td>${status}</td>
                         <td>
                             <button class="btn-small" onclick="loadResult('${result.id}')">Ver</button>
                             <button class="btn-small" onclick="downloadResult('${result.id}')">⬇️</button>
+                            <button class="btn-small btn-danger" onclick="deleteResult('${result.id}')">🗑️</button>
                         </td>
                     </tr>
                 `;
@@ -666,6 +674,35 @@
 
         function downloadResult(resultId) {
             window.location.href = `/api/download/${resultId}`;
+        }
+
+        async function deleteResult(resultId) {
+            if (!confirm(`Tem certeza que deseja excluir o resultado "${resultId}"?\n\nEsta ação não pode ser desfeita.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/result/${resultId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Clear current result if it's the one being deleted
+                    if (currentResultId === resultId) {
+                        currentResultId = null;
+                        document.getElementById('results-content').style.display = 'none';
+                        document.getElementById('execution-status').style.display = 'none';
+                    }
+                    // Refresh history
+                    loadHistory();
+                } else {
+                    alert('Erro ao excluir: ' + (data.error || 'Erro desconhecido'));
+                }
+            } catch (error) {
+                alert('Erro ao excluir resultado: ' + error);
+            }
         }
 
         // Load history on page load
