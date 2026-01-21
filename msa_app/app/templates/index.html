@@ -152,6 +152,11 @@
                                 <path stroke-linecap="round" stroke-linejoin="round"
                                     d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                             </svg> Download FASTA</button>
+                        <button id="btn-close-result" class="btn btn-secondary"><svg class="icon"
+                                xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                            </svg> Fechar Resultado</button>
                         <pre id="output-content"></pre>
                     </div>
                     <div class="result-logs">
@@ -477,6 +482,28 @@
         });
 
         // Run alignment
+        // Timer variables
+        let executionTimer = null;
+        let executionStartTime = null;
+
+        function startExecutionTimer() {
+            executionStartTime = Date.now();
+            executionTimer = setInterval(() => {
+                const elapsed = ((Date.now() - executionStartTime) / 1000).toFixed(1);
+                const timerEl = document.getElementById('execution-timer');
+                if (timerEl) {
+                    timerEl.textContent = elapsed + 's';
+                }
+            }, 100);
+        }
+
+        function stopExecutionTimer() {
+            if (executionTimer) {
+                clearInterval(executionTimer);
+                executionTimer = null;
+            }
+        }
+
         btnRun.addEventListener('click', async () => {
             if (!currentFilePath) {
                 alert('Selecione um arquivo primeiro');
@@ -485,7 +512,7 @@
 
             const requestData = {
                 algorithm: algorithmSelect.value,
-                binary_name: binaryVersionSelect.value,  // Add selected binary version
+                binary_name: binaryVersionSelect.value,
                 sequence_file: sequenceFileSelect.value,
                 file_path: currentFilePath,
                 cost_type: document.getElementById('cost_type').value,
@@ -493,13 +520,14 @@
                 verbose: document.getElementById('verbose_mode').checked
             };
 
-            // Show status
+            // Show status with timer
             document.getElementById('execution-status-content').innerHTML =
-                '<p><svg class="icon icon-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg> Executando... Por favor aguarde.</p>';
+                '<p><svg class="icon icon-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg> Executando... Por favor aguarde.</p><p class="execution-timer-display">Tempo: <span id="execution-timer">0.0s</span></p>';
             document.getElementById('execution-status').style.display = 'block';
             document.getElementById('results-content').style.display = 'none';
 
             btnRun.disabled = true;
+            startExecutionTimer();
 
             try {
                 const response = await fetch('/api/run', {
@@ -508,6 +536,7 @@
                     body: JSON.stringify(requestData)
                 });
 
+                stopExecutionTimer();
                 const data = await response.json();
 
                 if (response.ok && data.success) {
@@ -547,10 +576,12 @@
                          <p>${data.error || 'Erro desconhecido'}</p>`;
                 }
             } catch (error) {
+                stopExecutionTimer();
                 document.getElementById('execution-status-content').innerHTML =
                     `<p><svg class="icon icon-error" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> Erro na execução!</p>
                      <p>${error}</p>`;
             } finally {
+                stopExecutionTimer();
                 btnRun.disabled = false;
             }
         });
@@ -560,6 +591,14 @@
             if (currentResultId) {
                 window.location.href = `/api/download/${currentResultId}`;
             }
+        });
+
+        // Close result
+        document.getElementById('btn-close-result').addEventListener('click', () => {
+            currentResultId = null;
+            document.getElementById('results-content').style.display = 'none';
+            document.getElementById('execution-status').style.display = 'none';
+            document.getElementById('sequence-info').style.display = 'none';
         });
 
         // Sorting state for history

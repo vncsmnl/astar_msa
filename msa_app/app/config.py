@@ -39,7 +39,7 @@ SOURCES = {
 }
 
 # Execution settings
-MAX_EXECUTION_TIMEOUT = 600  # 10 minutes in seconds
+MAX_EXECUTION_TIMEOUT = 1800   # 30 minutes in seconds
 MAX_DIRECTORY_DEPTH = 5
 
 # File extensions

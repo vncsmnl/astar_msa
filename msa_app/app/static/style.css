@@ -476,3 +476,16 @@ code {
     color: inherit;
     font-size: inherit;
 }
+
+/* Execution timer display */
+.execution-timer-display {
+    font-size: 1.2rem;
+    margin-top: 10px;
+}
+
+.execution-timer-display #execution-timer {
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: 700;
+    color: var(--primary-color);
+    font-size: 1.2rem;
+}
