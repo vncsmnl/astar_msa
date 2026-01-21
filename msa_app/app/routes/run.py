@@ -18,7 +18,8 @@ def run_alignment_route():
     binary_name = data.get('binary_name')
     file_path_str = data.get('file_path')
     cost_type = data.get('cost_type', 'PAM250')
-    num_threads = data.get('num_threads', 4)
+    num_threads_raw = data.get('num_threads', 'auto')
+    num_threads = None if num_threads_raw == 'auto' else num_threads_raw
     verbose = data.get('verbose', False)
 
     if not file_path_str:

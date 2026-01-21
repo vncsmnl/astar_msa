@@ -53,8 +53,8 @@ def run_alignment(binary_name, algorithm, file_path, cost_type='PAM250', num_thr
     # Add output file
     cmd.extend(['-f', str(output_file)])
 
-    # Add threads only if binary supports it
-    if supports_threads:
+    # Add threads only if binary supports it and num_threads is specified (not auto)
+    if supports_threads and num_threads is not None and num_threads != 'auto':
         cmd.extend(['-t', str(num_threads)])
 
     # Add verbose flag and log file if requested

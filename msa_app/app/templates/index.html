@@ -46,7 +46,17 @@
 
                 <div class="form-group" id="threads-group">
                     <label for="num_threads">Número de Threads:</label>
-                    <input type="number" id="num_threads" class="form-control" value="4" min="1" max="128">
+                    <select id="num_threads" class="form-control">
+                        <option value="auto" selected>Auto (detectar automaticamente)</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="4">4</option>
+                        <option value="8">8</option>
+                        <option value="16">16</option>
+                        <option value="32">32</option>
+                        <option value="64">64</option>
+                        <option value="128">128</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -416,7 +426,7 @@
                     algorithm: algorithmSelect.value,
                     binary_name: binaryVersionSelect.value,
                     cost_type: document.getElementById('cost_type').value,
-                    num_threads: parseInt(document.getElementById('num_threads').value),
+                    num_threads: document.getElementById('num_threads').value,
                     verbose: document.getElementById('verbose_mode').checked
                 };
 
@@ -516,7 +526,7 @@
                 sequence_file: sequenceFileSelect.value,
                 file_path: currentFilePath,
                 cost_type: document.getElementById('cost_type').value,
-                num_threads: parseInt(document.getElementById('num_threads').value),
+                num_threads: document.getElementById('num_threads').value,
                 verbose: document.getElementById('verbose_mode').checked
             };
 
