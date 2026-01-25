@@ -92,6 +92,11 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt
             break;
 
         current.getNeigh(&neigh);
+
+        // Buffer to accumulate output - avoids multiple locks
+        std::ostringstream out_stream;
+        bool should_log = (options.verbose || log_stream) && !options.log_file.empty();
+
         for (typename std::vector<Node<N>>::iterator it = neigh.begin(); it != neigh.end(); ++it)
         {
             if ((c_search = ClosedList.find(it->pos)) != ClosedList.end())
@@ -103,24 +108,28 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt
 
             OpenList.conditional_enqueue(*it);
 
-            // Log node addition
-            if ((options.verbose || log_stream) && !options.log_file.empty())
+            // Accumulate log in local buffer
+            if (should_log)
             {
                 iteration++;
-                std::ostringstream log_line;
-                log_line << "0\t" << iteration << "\tAdding:\t" << it->pos << "\tg(" << it->get_g()
-                         << ") h(" << it->get_h() << ") f(" << it->get_f() << ")\n";
-
-                if (log_stream)
-                {
-                    *log_stream << log_line.str();
-                }
-                if (options.verbose)
-                {
-                    std::cout << log_line.str();
-                }
+                out_stream << "0\t" << iteration << "\tAdding:\t" << it->pos << "\tg(" << it->get_g()
+                           << ") h(" << it->get_h() << ") f(" << it->get_f() << ")\n";
             }
         }
+
+        // Escreve tudo de uma vez
+        if (should_log && out_stream.tellp() > 0)
+        {
+            if (log_stream)
+            {
+                *log_stream << out_stream.str();
+            }
+            if (options.verbose)
+            {
+                std::cout << out_stream.str();
+            }
+        }
+
         neigh.clear();
     }
     delete t;

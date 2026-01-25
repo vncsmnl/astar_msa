@@ -142,6 +142,10 @@ void PAStar<N>::enqueue(int tid, std::vector<Node<N>> &nodes)
 {
     typename boost::unordered_map<Coord<N>, Node<N>>::iterator c_search;
 
+    // Buffer to accumulate output - avoids multiple locks
+    std::ostringstream out_stream;
+    bool should_log = (m_options.verbose || log_stream) && m_options.log_file != "";
+
     for (typename std::vector<Node<N>>::iterator it = nodes.begin(); it != nodes.end(); ++it)
     {
         nodes_processed[tid] += 1;
@@ -153,30 +157,33 @@ void PAStar<N>::enqueue(int tid, std::vector<Node<N>> &nodes)
             nodes_reopen[tid] += 1;
         }
 
-        // Log node addition
-        if ((m_options.verbose || log_stream) && m_options.log_file != "")
+        // Accumulate log in local buffer (no lock)
+        if (should_log)
         {
             int iter = ++iteration_counter;
-            std::ostringstream log_line;
-            log_line << tid << "\t" << iter << "\tAdding:\t" << it->pos << "\tg(" << it->get_g()
-                     << ") h(" << it->get_h() << ") f(" << it->get_f() << ")\n";
-
-            // Lock before writing to protect against race conditions
-            std::lock_guard<std::mutex> lock(log_mutex);
-
-            if (log_stream)
-            {
-                *log_stream << log_line.str();
-                log_stream->flush(); // Ensure immediate write
-            }
-            if (m_options.verbose)
-            {
-                std::cout << log_line.str();
-            }
+            out_stream << tid << "\t" << iter << "\tAdding:\t" << it->pos << "\tg(" << it->get_g()
+                       << ") h(" << it->get_h() << ") f(" << it->get_f() << ")\n";
         }
 
         OpenList[tid].conditional_enqueue(*it);
     }
+
+    // Write everything at once with a single lock
+    if (should_log && out_stream.tellp() > 0)
+    {
+        std::lock_guard<std::mutex> lock(log_mutex);
+
+        if (log_stream)
+        {
+            *log_stream << out_stream.str();
+            log_stream->flush();
+        }
+        if (m_options.verbose)
+        {
+            std::cout << out_stream.str();
+        }
+    }
+
     return;
 }
 
