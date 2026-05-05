@@ -10,21 +10,22 @@ The PA-Star has been developed for Linux. The software is stable and has been st
 
 ### Prerequisites
 
-You need a modern C++ compiler and the libboost devel package. On Ubuntu, you can install it by:
+You need a modern C++ compiler, CMake, libboost devel package, and Google Highway SIMD library. On Ubuntu, you can install them by:
 
-```
-sudo apt-get install build-essential libboost-all-dev
+```bash
+sudo apt-get install build-essential cmake libboost-all-dev libhwy-dev
 ```
 
 ### Compiling
 
-To compile, you enter the "astar\_msa" folder and type:
+To compile, you enter the project folder and use CMake:
 
-```
-'make clean && make'
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
 ```
 
-This command works on all major Linux distributions and the 'msa\_astar' and 'msa\_pastar' binaries will be available in the 'astar\_msa/bin' folder.
+This command works on all major Linux distributions and the `msa_astar` and `msa_pastar` binaries will be available in the `bin/` folder.
 
 ## How to execute
 
