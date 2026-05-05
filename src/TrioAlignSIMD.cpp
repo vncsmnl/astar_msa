@@ -6,7 +6,7 @@
  * \brief Highway SIMD implementation of the TrioAlign k-axis vectorization.
  *
  * Uses Google Highway for performance-portable SIMD (AVX2/AVX-512/SSE4/NEON).
- * Strategy B: vectorize the innermost k-loop, processing multiple k values
+ * Strategy: vectorize the innermost k-loop, processing multiple k values
  * simultaneously within a single SIMD register.
  */
 #include "TrioAlignSIMD.h"
