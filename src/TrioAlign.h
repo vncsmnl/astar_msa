@@ -29,6 +29,7 @@ private:
     Trio m_trio;
 
     void Align(const std::string &s1, const std::string &s2, const std::string &s3);
+    void AlignInteriorSIMD(const std::string &s1, const std::string &s2, const std::string &s3);
     void initMatrix(int size1, int size2, int size3);
     void trioCost(int i, int j, int k, const std::string &s1, const std::string &s2, const std::string &s3);
 

@@ -11,6 +11,7 @@
 #include <string>
 
 #include "Cost.h"
+#include "TrioAlignSIMD.h"
 
 /*!
  * Creates a trio align of the sequences \a s1, \a s2 and \a s3.
@@ -176,21 +177,41 @@ void TrioAlign::Align(const std::string &s1, const std::string &s2, const std::s
         }
     }
 
-    // Fill the interior of the 3D matrix
-    for (i = s1_l - 1; i >= 0; i--)
-    {
-        for (j = s2_l - 1; j >= 0; j--)
-        {
-            for (k = s3_l - 1; k >= 0; k--)
-            {
-                trioCost(i, j, k, s1, s2, s3);
-            }
-        }
-    }
+    // Fill the interior of the 3D matrix using SIMD-accelerated kernel
+    AlignInteriorSIMD(s1, s2, s3);
 
 #ifdef PAIRALIGN_SCORE
     std::cout << at(0, 0, 0) << std::endl;
 #endif
+}
+
+/*!
+ * SIMD-accelerated interior fill of the 3D DP matrix.
+ * Uses Highway SIMD to vectorize the k-axis (innermost loop).
+ *
+ * For each (i, j), the SIMD kernel processes all k values simultaneously
+ * using the hybrid approach: 6 independent candidates via SIMD, then
+ * a scalar backward sweep for the k+1 serial dependency.
+ */
+void TrioAlign::AlignInteriorSIMD(const std::string &s1, const std::string &s2, const std::string &s3)
+{
+    const int* cost_lut = Cost::get_cost_lut();
+    const int gap_cost = Cost::GapCost;
+    const char* s3_cstr = s3.c_str();
+
+    for (int i = s1_l - 1; i >= 0; i--)
+    {
+        for (int j = s2_l - 1; j >= 0; j--)
+        {
+            trioCostSIMD_Row(m_matrix.data(),
+                             s1_l, s2_l, s3_l,
+                             i, j,
+                             s1[i], s2[j],
+                             s3_cstr,
+                             cost_lut,
+                             gap_cost);
+        }
+    }
 }
 
 //! Return the value of the 3D-matrix with coords i, j and k

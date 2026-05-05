@@ -8,6 +8,7 @@
 static Cost c;
 
 int Cost::cost_matrix[Z][Z] = { };
+int Cost::cost_lut[128 * 128] = { };
 int Cost::GapCost = 30;
 int Cost::GapGap = 30;
 
@@ -250,6 +251,7 @@ void Cost::set_cost_pam250()
 
     GapCost = 30;
     GapGap = 30;
+    init_cost_lut();
 }
 
 void Cost::set_cost_nuc()
@@ -286,10 +288,31 @@ void Cost::set_cost_nuc()
 
     GapCost = 2;
     GapGap = 2;
+    init_cost_lut();
 }
 
 //! Compare \a r and \a l and return the cost.
 int Cost::cost(const char r, const char l)
 {
     return cost_matrix[(int)r][(int)l];
+}
+
+/*!
+ * Populate the flat cost_lut from cost_matrix.
+ * cost_lut[r * 128 + l] = cost_matrix[r][l] for all valid ASCII chars.
+ * This layout enables SIMD gather operations in TrioAlignSIMD.
+ */
+void Cost::init_cost_lut()
+{
+    for (int r = 0; r < 128; ++r)
+    {
+        for (int l = 0; l < 128; ++l)
+        {
+            // Only copy values within the valid range of cost_matrix
+            if (r < 'Z' && l < 'Z')
+                cost_lut[r * 128 + l] = cost_matrix[r][l];
+            else
+                cost_lut[r * 128 + l] = 0;
+        }
+    }
 }

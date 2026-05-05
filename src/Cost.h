@@ -46,6 +46,11 @@ class Cost {
         static void set_cost_pam250();
         static void set_cost_nuc();
         static int cost(const char r, const char l);
+
+        //! Flat lookup table for SIMD gather: indexed by [char1 * 128 + char2]
+        static int cost_lut[128 * 128];
+        static const int* get_cost_lut() { return cost_lut; }
+        static void init_cost_lut();
     private:
         static int cost_matrix['Z']['Z'];
 };
