@@ -11,11 +11,6 @@ SEQ_NAME=$(basename "$SEQ")
 OUT_DIR="${SCRIPT_DIR}/results"
 mkdir -p "$OUT_DIR"
 
-echo "Processando: Xeon E5-2680 v4"
-echo "Sequência: $SEQ_NAME"
-echo "Threads: 14"
-echo "----------------------------------------"
-
 run_test () {
     MODE=$1
     AFFINITY_ARG=$2
@@ -23,6 +18,11 @@ run_test () {
     OUT_FILE="${OUT_DIR}/${SEQ_NAME}.${BIN_SUFFIX}.${MODE}.out"
 
     echo ""
+    echo "----------------------------------------"
+    echo "Sequência: $SEQ_NAME"
+    echo "Threads: 14"
+    echo "Versão: $BIN_SUFFIX"
+    echo "----------------------------------------"
     echo ">>> Rodando modo: $MODE"
     echo "Saída: $OUT_FILE"
 
