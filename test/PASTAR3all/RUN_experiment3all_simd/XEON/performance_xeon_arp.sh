@@ -2,7 +2,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../../" && pwd)"
-SEQ="${ROOT_DIR}/seqs/Balibase/Ref1/0_short_low_id/1aboA.fasta"
+SEQ="${ROOT_DIR}/seqs/Balibase/Ref1/7_long_medium_id/arp.fasta"
 
 THREADS="-t 14"
 

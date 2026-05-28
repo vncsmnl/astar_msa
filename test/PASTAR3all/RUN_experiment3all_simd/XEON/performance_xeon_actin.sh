@@ -35,15 +35,15 @@ run_test () {
 # ---------------------------
 # 1) Without affinity
 # ---------------------------
-for BIN_SUFFIX in 2all 3all simd; do
-    run_test "no_affinity" "" "$BIN_SUFFIX"
-done
+#for BIN_SUFFIX in 2all 3all simd; do
+#    run_test "no_affinity" "" "$BIN_SUFFIX"
+#done
 
 # ---------------------------
 # 2) With affinity
 # (physical cores)
 # ---------------------------
-AFFINITY="--affinity=0,2,4,6,8,10,12,14,16,18,20,22,24,26"
+AFFINITY="--affinity=0,1,2,3,4,5,6,7,8,9,10,11,12,13"
 for BIN_SUFFIX in 2all 3all simd; do
     run_test "affinity" "$AFFINITY" "$BIN_SUFFIX"
 done
