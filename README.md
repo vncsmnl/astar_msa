@@ -27,6 +27,26 @@ cmake --build build -j
 
 This command works on all major Linux distributions and the `msa_astar` and `msa_pastar` binaries will be available in the `bin/` folder.
 
+### Compiling and Running with Docker
+
+You can also build and run the application using Docker, which handles all build and runtime dependencies (CMake, Boost, and Google Highway) automatically.
+
+**Build the Docker image:**
+```bash
+docker build -t astar-msa .
+```
+
+**Run the parallel version (`msa_pastar`):**
+```bash
+docker run --rm astar-msa -t 2 seqs/3/synthetic_veryeasy.fasta
+```
+
+**Run the serial version (`msa_astar`):**
+```bash
+docker run --rm --entrypoint msa_astar astar-msa seqs/3/synthetic_easy.fasta
+```
+
+
 ## How to execute
 
 In the project we included many examples. By default, you can run msa\_astar for serial executions and msa\_pastar for parallel executions using as many cores as possible in the machine.

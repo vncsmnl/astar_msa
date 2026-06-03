@@ -1,0 +1,33 @@
+# Ignore git metadata
+.git
+.gitignore
+.gitattributes
+
+# Ignore build artifacts and binaries
+build/
+bin/
+obj/
+
+# Ignore documentation build outputs
+doc/html/
+doc/latex/
+
+# Ignore Docker files
+Dockerfile
+.dockerignore
+
+# Ignore IDE and editor configurations
+.vscode/
+.idea/
+cmake-build-*/
+out/
+
+# Ignore temporary and cache files
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+.DS_Store
