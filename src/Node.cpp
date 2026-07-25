@@ -201,7 +201,13 @@ int Node<N>::getNeigh(std::vector<Node> a[], int map_size, int thread_map[], Sea
             {
                 for (int y = x + 1; y < N; y++)
                 {
-                    int cost = Cost::cost(seq->get_seq(x)[pos[x] - 1], seq->get_seq(y)[pos[y] - 1]);
+                    // Only compute the match/mismatch cost when both
+                    // sequences advance in this neighbor; pairCost()
+                    // returns GapCost or GapGap for the other cases,
+                    // so the value here is never used for those.
+                    int cost = 0;
+                    if (bitSeqCheck(i, x, y))
+                        cost = Cost::cost(seq->get_seq(x)[pos[x] - 1], seq->get_seq(y)[pos[y] - 1]);
                     std::tuple<int, int, int> total_cost(cost, x, y);
                     pairwise_costs.push_back(total_cost);
                 }
