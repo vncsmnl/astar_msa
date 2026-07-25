@@ -113,6 +113,7 @@ private:
 
     std::mutex sync_mutex;
     std::atomic<int> sync_count;
+    int sync_generation;
     std::condition_variable sync_condition;
 
     // Meeting Detection (Bidirectional Search)
@@ -125,6 +126,7 @@ private:
     long long int *meeting_updates;
 
     void check_meeting(int tid, const Node<N> &current, SearchDirection dir);
+    bool MeetTermination(int tid);
 
     // Helper getters for direction-specific structures
     inline PriorityList<N>* get_open_list(SearchDirection dir) { return (dir == SearchDirection::FORWARD) ? OpenList_F : OpenList_B; }

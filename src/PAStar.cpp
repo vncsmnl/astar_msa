@@ -76,8 +76,13 @@ PAStar<N>::PAStar(const Node<N> &node_zero, const struct PAStarOpt &opt, SearchD
     // Enqueue first node according to direction or bidirectional mode
     if (m_options.common_options.bidirectional)
     {
-        OpenList_F[0].enqueue(Sequences::get_initial_node<N>());
-        OpenList_B[0].enqueue(Sequences::get_final_node<N>());
+        Node<N> start_F = Sequences::get_initial_node<N>();
+        int id_F = start_F.pos.get_id(map_size, thread_map);
+        OpenList_F[id_F].enqueue(start_F);
+
+        Node<N> start_B = Sequences::get_final_node<N>();
+        int id_B = start_B.pos.get_id(map_size, thread_map);
+        OpenList_B[id_B].enqueue(start_B);
     }
     else
     {
@@ -258,13 +263,46 @@ template <int N>
 void PAStar<N>::sync_threads()
 {
     std::unique_lock<std::mutex> sync_lock(sync_mutex);
+    int gen = sync_generation;
     if (++sync_count < m_options.threads_num)
-        sync_condition.wait(sync_lock);
+    {
+        sync_condition.wait(sync_lock, [this, gen] () -> bool { return gen != sync_generation; });
+    }
     else
     {
         sync_count = 0;
+        sync_generation++;
         sync_condition.notify_all();
     }
+}
+
+template <int N>
+bool PAStar<N>::MeetTermination(int tid)
+{
+    if (!meeting_found)
+        return false;
+
+    int current_mu = mu.load();
+
+    bool emptyF = OpenList_F[tid].empty();
+    bool emptyB = OpenList_B[tid].empty();
+
+    if (emptyF && emptyB)
+        return true;
+
+    int minF = emptyF ? std::numeric_limits<int>::max() : OpenList_F[tid].get_highest_priority();
+    int minB = emptyB ? std::numeric_limits<int>::max() : OpenList_B[tid].get_highest_priority();
+
+    if (minF >= current_mu && minB >= current_mu)
+        return true;
+
+    if (minF != std::numeric_limits<int>::max() && minB != std::numeric_limits<int>::max())
+    {
+        if (minF + minB >= current_mu)
+            return true;
+    }
+
+    return false;
 }
 
 //! Execute the pa_star algorithm until all nodes expand the same final node
@@ -289,30 +327,9 @@ void PAStar<N>::worker_inner(int tid, const Coord<N> &coord_final, SearchDirecti
             int minF = emptyF ? std::numeric_limits<int>::max() : OpenList_F[tid].get_highest_priority();
             int minB = emptyB ? std::numeric_limits<int>::max() : OpenList_B[tid].get_highest_priority();
 
-            bool is_ready = meeting_found && (minF >= mu.load()) && (minB >= mu.load());
-            thread_ready_to_stop[tid] = is_ready;
-
-            if (is_ready)
+            if (this->MeetTermination(tid))
             {
-                bool all_ready = true;
-                for (int i = 0; i < m_options.threads_num; ++i)
-                {
-                    if (!thread_ready_to_stop[i].load())
-                    {
-                        all_ready = false;
-                        break;
-                    }
-                }
-                if (all_ready)
-                {
-                    end_cond = true;
-                    wake_all_queue();
-                    break;
-                }
-            }
-            else
-            {
-                thread_ready_to_stop[tid] = false;
+                break;
             }
 
             if (emptyF && emptyB)
@@ -497,24 +514,21 @@ bool PAStar<N>::check_stop(int tid, SearchDirection dir)
 
         consume_queue(tid);
 
-        if (meeting_found)
-        {
-            int current_mu = mu.load();
-            int minF = OpenList_F[tid].get_highest_priority();
-            int minB = OpenList_B[tid].get_highest_priority();
+        thread_ready_to_stop[tid] = this->MeetTermination(tid);
+        sync_threads();
 
-            if (minF < current_mu || minB < current_mu)
-            {
-                end_cond = false;
-            }
-            else
-            {
-                end_cond = true;
-            }
-        }
-        else
+        if (tid == 0)
         {
-            end_cond = false;
+            bool all_ready = true;
+            for (int i = 0; i < m_options.threads_num; ++i)
+            {
+                if (!thread_ready_to_stop[i].load())
+                {
+                    all_ready = false;
+                    break;
+                }
+            }
+            end_cond = all_ready;
         }
 
         sync_threads();

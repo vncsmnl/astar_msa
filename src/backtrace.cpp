@@ -189,7 +189,15 @@ void backtrace_create_alignment_bidirectional(std::list<char> *alignments,
             alignments[i].push_front(c);
         }
         int id = parent_pos.get_id(map_size, thread_map);
-        current = ClosedList_F[id][parent_pos];
+        auto it = ClosedList_F[id].find(parent_pos);
+        if (it == ClosedList_F[id].end())
+        {
+            std::cerr << "ERRO FATAL no backtrace bidirecional (forward): "
+                      << "parent " << parent_pos << " nao encontrado em ClosedList_F[" << id << "]. "
+                      << "current.pos=" << current.pos << std::endl;
+            std::abort();
+        }
+        current = it->second;
     }
 
     // 2. Backward trace (from meeting point up to final coord)
@@ -201,13 +209,21 @@ void backtrace_create_alignment_bidirectional(std::list<char> *alignments,
         {
             char c;
             if (current.pos[i] != parent_pos[i])
-                c = seq->get_seq(i)[current.pos[i]];
+                c = seq->get_seq(i)[current.pos[i] - 1];
             else
                 c = '-';
             alignments[i].push_back(c);
         }
         int id = parent_pos.get_id(map_size, thread_map);
-        current = ClosedList_B[id][parent_pos];
+        auto it = ClosedList_B[id].find(parent_pos);
+        if (it == ClosedList_B[id].end())
+        {
+            std::cerr << "ERRO FATAL no backtrace bidirecional (backward): "
+                      << "parent " << parent_pos << " nao encontrado em ClosedList_B[" << id << "]. "
+                      << "current.pos=" << current.pos << std::endl;
+            std::abort();
+        }
+        current = it->second;
     }
 }
 
