@@ -41,8 +41,9 @@
  *     set neighbor's parent to current
  */
 template <int N>
-int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt &options)
+int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt &options, SearchDirection dir)
 {
+    (void)dir;
     Node<N> current;
     PriorityList<N> OpenList;
     boost::unordered_map<Coord<N>, Node<N>> ClosedList;
@@ -65,7 +66,7 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt
         else
         {
             *log_stream << "A-Star Execution Log\n";
-            *log_stream << "Single-threaded execution\n\n";
+            *log_stream << "Single-threaded execution (" << get_direction_name(dir) << ")\n\n";
         }
     }
 
@@ -91,7 +92,7 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt
         if (current.pos == coord_final)
             break;
 
-        current.getNeigh(&neigh);
+        current.getNeigh(&neigh, 1, NULL, dir);
 
         // Buffer to accumulate output - avoids multiple locks
         std::ostringstream out_stream;
@@ -150,6 +151,6 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt
 }
 
 #define A_STAR_DECLARE_TEMPLATE(X) \
-    template int a_star<X>(const Node<X> &node_zero, const Coord<X> &coord_final, const AStarOpt &options);
+    template int a_star<X>(const Node<X> &node_zero, const Coord<X> &coord_final, const AStarOpt &options, SearchDirection dir);
 
 MAX_NUM_SEQ_HELPER(A_STAR_DECLARE_TEMPLATE);
