@@ -21,8 +21,7 @@ sudo apt-get install build-essential cmake libboost-all-dev libhwy-dev
 To compile, you enter the project folder and use CMake:
 
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
+make clean && make -j$(nproc)
 ```
 
 This command works on all major Linux distributions and the `msa_astar` and `msa_pastar` binaries will be available in the `bin/` folder.
