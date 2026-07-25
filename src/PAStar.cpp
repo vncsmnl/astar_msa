@@ -234,8 +234,10 @@ template <int N>
 void PAStar<N>::wait_queue(int tid)
 {
     std::unique_lock<std::mutex> queue_lock(queue_mutex[tid]);
-    if (queue_nodes_F[tid].empty() && queue_nodes_B[tid].empty())
+    while (end_cond == false && queue_nodes_F[tid].empty() && queue_nodes_B[tid].empty())
+    {
         queue_condition[tid].wait(queue_lock);
+    }
     return;
 }
 
@@ -246,7 +248,7 @@ void PAStar<N>::wake_all_queue()
     for (int i = 0; i < m_options.threads_num; ++i)
     {
         std::unique_lock<std::mutex> queue_lock(queue_mutex[i]);
-        queue_condition[i].notify_one();
+        queue_condition[i].notify_all();
     }
     return;
 }
