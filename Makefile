@@ -82,7 +82,6 @@ COMMON_CPP_SRCS += \
     $(SRC_DIR)/msa_options.cpp \
     $(SRC_DIR)/Node.cpp \
     $(SRC_DIR)/read_fasta.cpp \
-    $(SRC_DIR)/PairAlign.cpp \
     $(SRC_DIR)/TrioAlign.cpp \
     $(SRC_DIR)/TrioAlignSIMD.cpp \
     $(SRC_DIR)/Sequences.cpp \
