@@ -20,34 +20,29 @@
  */
 TrioAlign::TrioAlign(Trio t, const std::string &s1, const std::string &s2,
                      const std::string &s3)
-    : m_trio(t)
-{
+    : m_trio(t) {
   Align(s1, s2, s3);
 }
 
 // Calculates the 1D index for 3D coordinates (i, j, k).
 // Uses row-major order: i varies slowest, k varies fastest
-inline size_t TrioAlign::index3D(int i, int j, int k) const
-{
+inline size_t TrioAlign::index3D(int i, int j, int k) const {
   return static_cast<size_t>(i) * (s2_l + 1) * (s3_l + 1) +
          static_cast<size_t>(j) * (s3_l + 1) + static_cast<size_t>(k);
 }
 
 // Mutable access to the matrix
-inline int &TrioAlign::at(int i, int j, int k)
-{
+inline int &TrioAlign::at(int i, int j, int k) {
   return m_matrix[index3D(i, j, k)];
 }
 
 // Immutable access to the matrix
-inline int TrioAlign::at(int i, int j, int k) const
-{
+inline int TrioAlign::at(int i, int j, int k) const {
   return m_matrix[index3D(i, j, k)];
 }
 
 //! Initialize all internal matrixes with sizes \a size1, \a size2 and \a size3
-void TrioAlign::initMatrix(int size1, int size2, int size3)
-{
+void TrioAlign::initMatrix(int size1, int size2, int size3) {
   s1_l = size1;
   s2_l = size2;
   s3_l = size3;
@@ -65,8 +60,7 @@ void TrioAlign::initMatrix(int size1, int size2, int size3)
  * the cell with coords \a i, \a j and \a k
  */
 void TrioAlign::trioCost(int i, int j, int k, const std::string &s1,
-                         const std::string &s2, const std::string &s3)
-{
+                         const std::string &s2, const std::string &s3) {
   int min_value = INT_MAX;
 
   // 7 possible cases for aligning 3 sequences:
@@ -107,8 +101,7 @@ void TrioAlign::trioCost(int i, int j, int k, const std::string &s1,
 
 //! Do a trio alignment (3D dynamic programming)
 void TrioAlign::Align(const std::string &s1, const std::string &s2,
-                      const std::string &s3)
-{
+                      const std::string &s3) {
   int i, j, k;
   initMatrix(s1.length(), s2.length(), s3.length());
 
@@ -117,29 +110,24 @@ void TrioAlign::Align(const std::string &s1, const std::string &s2,
 
   // Initialize the edges of the 3D matrix
   // Edge where only s3 varies (s1 and s2 at the end)
-  for (k = s3_l - 1; k >= 0; k--)
-  {
+  for (k = s3_l - 1; k >= 0; k--) {
     at(s1_l, s2_l, k) = at(s1_l, s2_l, k + 1) + 2 * Cost::GapCost;
   }
 
   // Edge where only s2 varies (s1 and s3 at the end)
-  for (j = s2_l - 1; j >= 0; j--)
-  {
+  for (j = s2_l - 1; j >= 0; j--) {
     at(s1_l, j, s3_l) = at(s1_l, j + 1, s3_l) + 2 * Cost::GapCost;
   }
 
   // Edge where only s1 varies (s2 and s3 at the end)
-  for (i = s1_l - 1; i >= 0; i--)
-  {
+  for (i = s1_l - 1; i >= 0; i--) {
     at(i, s2_l, s3_l) = at(i + 1, s2_l, s3_l) + 2 * Cost::GapCost;
   }
 
   // Faces of the 3D matrix
   // Face s1-s2 (k = s3_l)
-  for (i = s1_l - 1; i >= 0; i--)
-  {
-    for (j = s2_l - 1; j >= 0; j--)
-    {
+  for (i = s1_l - 1; i >= 0; i--) {
+    for (j = s2_l - 1; j >= 0; j--) {
       int cost_match = Cost::cost(s1.at(i), s2.at(j)) + 2 * Cost::GapCost;
       int cost_gap1 = 2 * Cost::GapCost;
       int cost_gap2 = 2 * Cost::GapCost;
@@ -152,10 +140,8 @@ void TrioAlign::Align(const std::string &s1, const std::string &s2,
   }
 
   // Face s1-s3 (j = s2_l)
-  for (i = s1_l - 1; i >= 0; i--)
-  {
-    for (k = s3_l - 1; k >= 0; k--)
-    {
+  for (i = s1_l - 1; i >= 0; i--) {
+    for (k = s3_l - 1; k >= 0; k--) {
       int cost_match = Cost::cost(s1.at(i), s3.at(k)) + 2 * Cost::GapCost;
       int cost_gap1 = 2 * Cost::GapCost;
       int cost_gap2 = 2 * Cost::GapCost;
@@ -168,10 +154,8 @@ void TrioAlign::Align(const std::string &s1, const std::string &s2,
   }
 
   // Face s2-s3 (i = s1_l)
-  for (j = s2_l - 1; j >= 0; j--)
-  {
-    for (k = s3_l - 1; k >= 0; k--)
-    {
+  for (j = s2_l - 1; j >= 0; j--) {
+    for (k = s3_l - 1; k >= 0; k--) {
       int cost_match = Cost::cost(s2.at(j), s3.at(k)) + 2 * Cost::GapCost;
       int cost_gap1 = 2 * Cost::GapCost;
       int cost_gap2 = 2 * Cost::GapCost;
@@ -200,16 +184,13 @@ void TrioAlign::Align(const std::string &s1, const std::string &s2,
  * a scalar backward sweep for the k+1 serial dependency.
  */
 void TrioAlign::AlignInteriorSIMD(const std::string &s1, const std::string &s2,
-                                  const std::string &s3)
-{
+                                  const std::string &s3) {
   const int *cost_lut = Cost::get_cost_lut();
   const int gap_cost = Cost::GapCost;
   const char *s3_cstr = s3.c_str();
 
-  for (int i = s1_l - 1; i >= 0; i--)
-  {
-    for (int j = s2_l - 1; j >= 0; j--)
-    {
+  for (int i = s1_l - 1; i >= 0; i--) {
+    for (int j = s2_l - 1; j >= 0; j--) {
       trioCostSIMD_Row(m_matrix.data(), s1_l, s2_l, s3_l, i, j, s1[i], s2[j],
                        s3_cstr, cost_lut, gap_cost);
     }
@@ -217,7 +198,6 @@ void TrioAlign::AlignInteriorSIMD(const std::string &s1, const std::string &s2,
 }
 
 //! Return the value of the 3D-matrix with coords i, j and k
-int TrioAlign::getScore(const int i, const int j, const int k) const
-{
+int TrioAlign::getScore(const int i, const int j, const int k) const {
   return at(i, j, k);
 }
