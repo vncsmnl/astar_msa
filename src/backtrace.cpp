@@ -209,7 +209,10 @@ void backtrace_create_alignment_bidirectional(std::list<char> *alignments,
         {
             char c;
             if (current.pos[i] != parent_pos[i])
-                c = seq->get_seq(i)[current.pos[i] - 1];
+                // parent_pos[i] = current.pos[i] + 1; the forward edge
+                // from current to parent consumes seq[i] at position
+                // current.pos[i] (0-indexed).
+                c = seq->get_seq(i)[current.pos[i]];
             else
                 c = '-';
             alignments[i].push_back(c);
