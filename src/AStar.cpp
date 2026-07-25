@@ -48,7 +48,6 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt
     PriorityList<N> OpenList;
     boost::unordered_map<Coord<N>, Node<N>> ClosedList;
     std::vector<Node<N>> neigh;
-    TimeCounter *t = new TimeCounter("\nPhase 2: A-Star running time: ");
 
     // Initialize log file if specified
     std::ofstream *log_stream = nullptr;
@@ -69,6 +68,9 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt
             *log_stream << "Single-threaded execution (" << get_direction_name(dir) << ")\n\n";
         }
     }
+
+    {
+    TimeCounter t("\nPhase 2: A-Star running time: ");
 
     OpenList.enqueue(node_zero);
 
@@ -118,7 +120,7 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt
             }
         }
 
-        // Escreve tudo de uma vez
+        // Write everything at once
         if (should_log && out_stream.tellp() > 0)
         {
             if (log_stream)
@@ -133,7 +135,7 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt
 
         neigh.clear();
     }
-    delete t;
+    } // TimeCounter destructor prints elapsed time
 
     // Write Phase 2 marker and close log
     if (log_stream)
