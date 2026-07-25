@@ -25,7 +25,7 @@ HeuristicHPair::HeuristicHPair()
     m_num_threads = std::thread::hardware_concurrency();
     if (m_num_threads == 0)
         m_num_threads = 4; // fallback to 4 threads
-    std::cout << "Initializing thread pool with " << m_num_threads << " threads\n";
+    std::cout << "Detecting number of available threads... Found " << m_num_threads << " threads\n";
 }
 
 //! Free all trio alignments
@@ -78,7 +78,7 @@ void HeuristicHPair::init()
     Sequences *seq = Sequences::getInstance();
     int seq_num = Sequences::get_seq_num();
 
-    std::cout << "Starting trio alignments (parallelized with " << m_num_threads << " threads)... " << std::flush;
+    std::cout << "Starting trio alignments... done!" << std::flush;
 #ifdef PAIRALIGN_SCORE
     std::cout << std::endl;
 #endif
@@ -113,8 +113,6 @@ void HeuristicHPair::init()
     mAligns.resize(total_tasks);
 
     std::cout << "\nNumber of triplets: " << total_tasks << " (C(" << seq_num << ",3))" << std::endl;
-    std::cout << "Each pair appears in (seq_num-2) = " << (seq_num - 2) << " triplets" << std::endl;
-    std::cout << "Dividing the sum of triplets by " << (seq_num - 2) << " to obtain an admissible heuristic" << std::endl;
 
     // Mutex to control access to the results vector (not necessary here, but kept for safety)
     std::mutex result_mutex;
@@ -203,7 +201,7 @@ int HeuristicHPair::calculate_h(const Coord<N> &c, SearchDirection dir) const
     }
 }
 
-#define DECLARE_TEMPLATE(X) \
+#define DECLARE_TEMPLATE(X)                                                  \
     template int HeuristicHPair::calculate_h_raw<X>(Coord<X> const &) const; \
     template int HeuristicHPair::calculate_h<X>(Coord<X> const &, SearchDirection) const;
 
