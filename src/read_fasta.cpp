@@ -28,6 +28,9 @@ int read_fasta_file_core(const std::string &name)
         {
             std::string buf;
             getline(file, buf);
+            // Strip trailing carriage return (Windows line endings)
+            if (!buf.empty() && buf.back() == '\r')
+                buf.pop_back();
             if (buf.length() <= 0)
                 break;
             if (buf.at(0) == '>')
