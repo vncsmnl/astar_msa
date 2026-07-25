@@ -173,65 +173,16 @@ int HeuristicHPair::calculate_h_raw(const Coord<N> &c) const
     int seq_num = Sequences::get_seq_num();
     int v_minus_2 = seq_num - 2; // Number of triplets in which each pair appears
 
-    // For few alignments, the threading overhead is not worth it
-    if (num_aligns < 50)
-    {
-        int h = 0;
-        for (std::vector<TrioAlign *>::const_iterator it = mAligns.begin(); it != mAligns.end(); ++it)
-        {
-            int x = std::get<0>((*it)->getTrio());
-            int y = std::get<1>((*it)->getTrio());
-            int z = std::get<2>((*it)->getTrio());
-            h += (*it)->getScore(c[x], c[y], c[z]);
-        }
-        // Divide by the redundant count (seq_num-2) to obtain the correct average
-        return h / v_minus_2;
-    }
-
-    // For many alignments, parallelize the calculation
-    std::vector<int> partial_sums(m_num_threads, 0);
-    std::vector<std::thread> threads;
-
-    size_t aligns_per_thread = (num_aligns + m_num_threads - 1) / m_num_threads;
-
-    auto worker = [&](int thread_id, size_t start_idx, size_t end_idx)
-    {
-        int local_sum = 0;
-        for (size_t idx = start_idx; idx < end_idx; ++idx)
-        {
-            TrioAlign *align = mAligns[idx];
-            int x = std::get<0>(align->getTrio());
-            int y = std::get<1>(align->getTrio());
-            int z = std::get<2>(align->getTrio());
-            local_sum += align->getScore(c[x], c[y], c[z]);
-        }
-        partial_sums[thread_id] = local_sum;
-    };
-
-    // Distribute tasks among threads
-    for (int t = 0; t < m_num_threads; ++t)
-    {
-        size_t start_idx = t * aligns_per_thread;
-        size_t end_idx = std::min(start_idx + aligns_per_thread, num_aligns);
-
-        if (start_idx < num_aligns)
-        {
-            threads.emplace_back(worker, t, start_idx, end_idx);
-        }
-    }
-
-    // Wait for all threads to finish and sum results
-    for (auto &t : threads)
-    {
-        t.join();
-    }
-
     int h = 0;
-    for (int partial : partial_sums)
+    for (size_t idx = 0; idx < num_aligns; ++idx)
     {
-        h += partial;
+        TrioAlign *align = mAligns[idx];
+        int x = std::get<0>(align->getTrio());
+        int y = std::get<1>(align->getTrio());
+        int z = std::get<2>(align->getTrio());
+        h += align->getScore(c[x], c[y], c[z]);
     }
-
+    // Divide by the redundant count (seq_num-2) to obtain the correct average
     return h / v_minus_2;
 }
 
