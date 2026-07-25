@@ -21,7 +21,12 @@
 #endif
 
 using boost::multi_index_container;
-using namespace boost::multi_index;
+using boost::multi_index::indexed_by;
+using boost::multi_index::hashed_unique;
+using boost::multi_index::ordered_non_unique;
+using boost::multi_index::tag;
+using boost::multi_index::member;
+using boost::multi_index::get;
 
 struct pos{};
 struct priority{};
@@ -76,6 +81,9 @@ bool PriorityList<N>::enqueue(const Node<N> &n)
     auto it = m_openlist.find(n.pos);
     if (it == m_openlist.end())
         return m_openlist.insert(n).second;
+    // Only update if the new node is better (lower f)
+    if (n.get_f() >= it->get_f())
+        return true;
     return m_openlist.modify(it, change_node<N>(n.get_f(), n.get_g(), n.get_parenti()));
 }
 
