@@ -21,7 +21,10 @@ int pa_star_run_core(const PAStarOpt &opt)
     // This macro is expanded to every supported number of sequences
     #define RUN_PASTAR(X) \
         case X : \
-            return PAStar< X >::pa_star(Sequences::get_initial_node< X >(), Sequences::get_final_coord< X >(), opt);
+            if (opt.dir == SearchDirection::BACKWARD) \
+                return PAStar< X >::pa_star(Sequences::get_final_node< X >(), Sequences::get_initial_coord< X >(), opt, SearchDirection::BACKWARD); \
+            else \
+                return PAStar< X >::pa_star(Sequences::get_initial_node< X >(), Sequences::get_final_coord< X >(), opt, SearchDirection::FORWARD);
 
     std::cout << "Performing search with Parallel A-Star (" << astar_version << ")\n";
     switch (Sequences::get_seq_num())
