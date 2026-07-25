@@ -608,37 +608,92 @@ int PAStar<N>::worker(int tid, const Coord<N> &coord_final, SearchDirection dir)
 template <int N>
 void PAStar<N>::print_nodes_count()
 {
-    long long int nodes_total = 0;
-    long long int open_list_total = 0;
-    long long int closed_list_total = 0;
-    long long int nodes_processed_total = 0;
-    long long int nodes_reopen_total = 0;
-
-    PriorityList<N> *OpenList = get_open_list(m_dir);
-    boost::unordered_map<Coord<N>, Node<N>> *ClosedList = get_closed_list(m_dir);
-
-    std::cout << "Total nodes count:" << std::endl;
-    for (int i = 0; i < m_options.threads_num; ++i)
+    if (m_options.common_options.bidirectional)
     {
-        long long int total_local = OpenList[i].size() + ClosedList[i].size() + nodes_reopen[i];
-        std::cout << "tid " << i
-                  << "\tOpenList: " << OpenList[i].size()
-                  << "\tClosedList: " << ClosedList[i].size()
-                  << "\tReopen: " << nodes_reopen[i]
-                  << "\tTotal: " << total_local
-                  << "\t(Total Processed: " << nodes_processed[i] << ")\n";
-        open_list_total += OpenList[i].size();
-        closed_list_total += ClosedList[i].size();
-        nodes_reopen_total += nodes_reopen[i];
-        nodes_processed_total += nodes_processed[i];
-        nodes_total += total_local;
+        long long int open_F_total = 0, open_B_total = 0;
+        long long int closed_F_total = 0, closed_B_total = 0;
+        long long int nodes_processed_total = 0, nodes_reopen_total = 0;
+        long long int meeting_updates_total = 0;
+
+        std::cout << "Total nodes count (Bidirectional Search):" << std::endl;
+        for (int i = 0; i < m_options.threads_num; ++i)
+        {
+            long long int open_F = OpenList_F[i].size();
+            long long int open_B = OpenList_B[i].size();
+            long long int closed_F = ClosedList_F[i].size();
+            long long int closed_B = ClosedList_B[i].size();
+            long long int total_local = open_F + open_B + closed_F + closed_B + nodes_reopen[i];
+
+            std::cout << "tid " << i
+                      << "\tOpen_F: " << open_F
+                      << "\tClosed_F: " << closed_F
+                      << "\tOpen_B: " << open_B
+                      << "\tClosed_B: " << closed_B
+                      << "\tReopen: " << nodes_reopen[i]
+                      << "\tTotal: " << total_local
+                      << "\t(Processed: " << nodes_processed[i]
+                      << ", Meetings: " << meeting_updates[i] << ")\n";
+
+            open_F_total += open_F;
+            open_B_total += open_B;
+            closed_F_total += closed_F;
+            closed_B_total += closed_B;
+            nodes_reopen_total += nodes_reopen[i];
+            nodes_processed_total += nodes_processed[i];
+            meeting_updates_total += meeting_updates[i];
+        }
+
+        long long int grand_total = open_F_total + open_B_total + closed_F_total + closed_B_total + nodes_reopen_total;
+        std::cout << "Sum"
+                  << "\tOpen_F: " << open_F_total
+                  << "\tClosed_F: " << closed_F_total
+                  << "\tOpen_B: " << open_B_total
+                  << "\tClosed_B: " << closed_B_total
+                  << "\tReopen: " << nodes_reopen_total
+                  << "\tTotal: " << grand_total
+                  << "\t(Processed: " << nodes_processed_total
+                  << ", Meetings: " << meeting_updates_total << ")\n";
+
+        if (meeting_found)
+        {
+            std::cout << "Optimal Meeting Point: " << best_meeting_node_F.pos
+                      << " with cost (mu): " << mu.load() << std::endl;
+        }
     }
-    std::cout << "Sum"
-              << "\tOpenList: " << open_list_total
-              << "\tClosedList: " << closed_list_total
-              << "\tReopen: " << nodes_reopen_total
-              << "\tTotal: " << nodes_total
-              << "\t(Total Processed: " << nodes_processed_total << ")\n";
+    else
+    {
+        long long int nodes_total = 0;
+        long long int open_list_total = 0;
+        long long int closed_list_total = 0;
+        long long int nodes_processed_total = 0;
+        long long int nodes_reopen_total = 0;
+
+        PriorityList<N> *OpenList = get_open_list(m_dir);
+        boost::unordered_map<Coord<N>, Node<N>> *ClosedList = get_closed_list(m_dir);
+
+        std::cout << "Total nodes count:" << std::endl;
+        for (int i = 0; i < m_options.threads_num; ++i)
+        {
+            long long int total_local = OpenList[i].size() + ClosedList[i].size() + nodes_reopen[i];
+            std::cout << "tid " << i
+                      << "\tOpenList: " << OpenList[i].size()
+                      << "\tClosedList: " << ClosedList[i].size()
+                      << "\tReopen: " << nodes_reopen[i]
+                      << "\tTotal: " << total_local
+                      << "\t(Total Processed: " << nodes_processed[i] << ")\n";
+            open_list_total += OpenList[i].size();
+            closed_list_total += ClosedList[i].size();
+            nodes_reopen_total += nodes_reopen[i];
+            nodes_processed_total += nodes_processed[i];
+            nodes_total += total_local;
+        }
+        std::cout << "Sum"
+                  << "\tOpenList: " << open_list_total
+                  << "\tClosedList: " << closed_list_total
+                  << "\tReopen: " << nodes_reopen_total
+                  << "\tTotal: " << nodes_total
+                  << "\t(Total Processed: " << nodes_processed_total << ")\n";
+    }
 }
 
 template <int N>
