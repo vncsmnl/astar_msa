@@ -1,5 +1,5 @@
 /*!
- * \file TrioAlignSIMD.h
+ * \file SIMDAligner.h
  * \author Vinícius Manoel
  * \copyright MIT License
  *
@@ -14,8 +14,8 @@
  * - Case 2 (at(i,j,k+1) + 2*GapCost) has a serial k-dependency and is
  *   merged in a scalar backward sweep after the SIMD pass.
  */
-#ifndef _TRIOALIGN_SIMD_H
-#define _TRIOALIGN_SIMD_H
+#ifndef _SIMDALIGNER_H
+#define _SIMDALIGNER_H
 
 /*!
  * SIMD-accelerated computation of the interior cells for a fixed (i, j).
@@ -37,12 +37,12 @@
  * \param cost_lut   Flat cost lookup table [128*128] (r*128+l indexing)
  * \param gap_cost   Gap cost value (Cost::GapCost)
  */
-void trioCostSIMD_Row(int* matrix,
+void trioCostSIMD_Row(int *matrix,
                       int s1_l, int s2_l, int s3_l,
                       int i, int j,
                       char s1_char, char s2_char,
-                      const char* s3,
-                      const int* cost_lut,
+                      const char *s3,
+                      const int *cost_lut,
                       int gap_cost);
 
-#endif // _TRIOALIGN_SIMD_H
+#endif // _SIMDALIGNER_H
