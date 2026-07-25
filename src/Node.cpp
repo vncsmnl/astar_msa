@@ -32,12 +32,12 @@ Node<N>::Node()
  *          MUST be called.
  */
 template < int N >
-Node<N>::Node(const int g, const Coord<N>& pos, const int &parenti)
+Node<N>::Node(const int g, const Coord<N>& pos, const int &parenti, SearchDirection dir)
 : pos(pos),
   parenti(parenti)
 {
     m_g = g;
-    m_f = m_g + HeuristicHPair::getInstance()->calculate_h(pos);
+    m_f = m_g + HeuristicHPair::getInstance()->calculate_h(pos, dir);
 }
 
 template < int N >
@@ -70,6 +70,16 @@ void Node<N>::set_max()
 //! Check if coord \a c belongs to the sequences' search space
 template < int N >
 bool Node<N>::borderCheck(const Coord<N> &c) const
+{
+    Coord<N> final_coord = Sequences::get_final_coord<N>();
+    for (int i = 0; i < N; i++)
+        if (c[i] > final_coord[i])
+            return false;
+    return true;
+}
+
+template < int N >
+bool Node<N>::borderCheckBackward(const Coord<N> &c) const
 {
     Coord<N> final_coord = Sequences::get_final_coord<N>();
     for (int i = 0; i < N; i++)
@@ -141,43 +151,74 @@ inline int Node<N>::pairCost(const int &neigh_num, const int &mm_cost, const int
 }
 
 /*!
- * Add all neighboors to a vector \a a. If it is not a board node,
- * 2pow(n-1) nodes are added.
+ * Add all neighboors/predecessors to a vector \a a.
  */
 template < int N >
-int Node<N>::getNeigh(std::vector<Node> a[], int map_size, int thread_map[])
+int Node<N>::getNeigh(std::vector<Node> a[], int map_size, int thread_map[], SearchDirection dir)
 {
     int i;
     Sequences *seq = Sequences::getInstance();
     Coord<N> c;
 
-    /* Vector of tuple. First field cost, Second field, sequence1.
-       third field, sequence2.
-       Example, if sequence 0 and 2 matches, one of the vector fields
-       contains first MATCH score, second 0, third 2. */
-    std::vector< std::tuple<int, int, int> > pairwise_costs;
-
-    for (int i = 0; i < N - 1; i++)
+    int n = bitSeq(N) - 1;
+    if (dir == SearchDirection::FORWARD)
     {
-        for (int j = i + 1; j < N; j++)
+        std::vector< std::tuple<int, int, int> > pairwise_costs;
+        for (int x = 0; x < N - 1; x++)
         {
-            int cost = Cost::cost(seq->get_seq(i)[pos[i]], seq->get_seq(j)[pos[j]]);
-            std::tuple<int, int, int> total_cost(cost, i, j);
-            pairwise_costs.push_back(total_cost);
+            for (int y = x + 1; y < N; y++)
+            {
+                int cost = Cost::cost(seq->get_seq(x)[pos[x]], seq->get_seq(y)[pos[y]]);
+                std::tuple<int, int, int> total_cost(cost, x, y);
+                pairwise_costs.push_back(total_cost);
+            }
+        }
+
+        for (i = 1; i <= n; i++)
+        {
+            c = pos.neigh(i);
+            if (borderCheck(c))
+            {
+                int costs = 0; // match, mismatch and gap sum-of-pairs cost
+
+                for (auto it = pairwise_costs.begin() ; it != pairwise_costs.end(); ++it)
+                    costs += pairCost(i, std::get<0>(*it), std::get<1>(*it), std::get<2>(*it));
+                a[c.get_id(map_size, thread_map)].push_back(Node(m_g + costs, c, i, SearchDirection::FORWARD));
+            }
         }
     }
-
-    int n = bitSeq(N) - 1;
-    for (i = 1; i <= n; i++)
+    else // BACKWARD
     {
-        c = pos.neigh(i);
-        if (borderCheck(c))
+        for (i = 1; i <= n; i++)
         {
-            int costs = 0; // match, mismatch and gap sum-of-pairs cost
+            bool valid = true;
+            for (int k = 0; k < N; ++k)
+            {
+                if ((i & bitSeq(k)) && pos[k] == 0)
+                {
+                    valid = false;
+                    break;
+                }
+            }
+            if (!valid) continue;
 
+            c = pos.parent(i);
+
+            std::vector< std::tuple<int, int, int> > pairwise_costs;
+            for (int x = 0; x < N - 1; x++)
+            {
+                for (int y = x + 1; y < N; y++)
+                {
+                    int cost = Cost::cost(seq->get_seq(x)[pos[x] - 1], seq->get_seq(y)[pos[y] - 1]);
+                    std::tuple<int, int, int> total_cost(cost, x, y);
+                    pairwise_costs.push_back(total_cost);
+                }
+            }
+
+            int costs = 0;
             for (auto it = pairwise_costs.begin() ; it != pairwise_costs.end(); ++it)
                 costs += pairCost(i, std::get<0>(*it), std::get<1>(*it), std::get<2>(*it));
-            a[c.get_id(map_size, thread_map)].push_back(Node(m_g + costs, c, i));
+            a[c.get_id(map_size, thread_map)].push_back(Node(m_g + costs, c, i, SearchDirection::BACKWARD));
         }
     }
     return 0;
