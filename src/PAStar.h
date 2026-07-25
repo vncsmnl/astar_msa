@@ -73,6 +73,8 @@ struct PAStarOpt
         hash_shift = shift;
         threads_num = th;
         no_affinity = noaf;
+        log_file = "";
+        verbose = false;
         dir = d;
     }
 };
@@ -113,7 +115,7 @@ private:
 
     std::mutex sync_mutex;
     std::atomic<int> sync_count;
-    int sync_generation;
+    int sync_generation = 0;
     std::condition_variable sync_condition;
 
     // Meeting Detection (Bidirectional Search)

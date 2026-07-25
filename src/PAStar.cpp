@@ -322,6 +322,9 @@ void PAStar<N>::worker_inner(int tid, const Coord<N> &coord_final, SearchDirecti
 
         if (m_options.common_options.bidirectional)
         {
+            // Reset ready-to-stop flag after consuming new work
+            thread_ready_to_stop[tid] = false;
+
             bool emptyF = OpenList_F[tid].empty();
             bool emptyB = OpenList_B[tid].empty();
             int minF = emptyF ? std::numeric_limits<int>::max() : OpenList_F[tid].get_highest_priority();
@@ -567,12 +570,14 @@ void PAStar<N>::check_meeting(int tid, const Node<N> &current, SearchDirection d
 
         meeting_updates[tid] += 1;
 
-        int current_mu = mu.load();
-        while (meeting_cost < current_mu)
+        // Use the mutex to ensure mu and best_meeting_node_F/B are updated
+        // atomically together, preventing a stale-node race.
+        if (meeting_cost < mu.load())
         {
-            if (mu.compare_exchange_weak(current_mu, meeting_cost))
+            std::lock_guard<std::mutex> lock(meeting_mutex);
+            if (meeting_cost < mu.load())
             {
-                std::lock_guard<std::mutex> lock(meeting_mutex);
+                mu.store(meeting_cost);
                 if (dir == SearchDirection::FORWARD)
                 {
                     best_meeting_node_F = current;
@@ -586,7 +591,6 @@ void PAStar<N>::check_meeting(int tid, const Node<N> &current, SearchDirection d
                 std::cout << "Meeting found at " << current.pos << " with cost " << meeting_cost << std::endl;
                 meeting_found = true;
                 wake_all_queue();
-                break;
             }
         }
     }
@@ -723,7 +727,8 @@ int PAStar<N>::pa_star(const Node<N> &node_zero, const Coord<N> &coord_final, co
 
     PAStar<N> pastar_instance(node_zero, options, dir);
     std::vector<std::thread> threads;
-    TimeCounter *t = new TimeCounter("Phase 2: PA-Star running time: ");
+    {
+    TimeCounter t("Phase 2: PA-Star running time: ");
 
     // Create threads
     for (int i = 1; i < options.threads_num; ++i)
@@ -733,7 +738,7 @@ int PAStar<N>::pa_star(const Node<N> &node_zero, const Coord<N> &coord_final, co
     // Wait for the end of all threads
     for (auto &th : threads)
         th.join();
-    delete t;
+    } // TimeCounter destructor prints elapsed time
 
     // Write Phase 2 marker to log
     if (pastar_instance.log_stream)
