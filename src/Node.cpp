@@ -16,86 +16,69 @@
 #include "Sequences.h"
 
 //! Build a node with zero on all atributes
-template < int N >
-Node<N>::Node()
-{
-    m_g = 0;
-    m_f = 0;
-    parenti = 0;
+template <int N> Node<N>::Node() {
+  m_g = 0;
+  m_f = 0;
+  parenti = 0;
 }
 
 /*!
  * Build a node with cost \a g and position \a pos with parent
  * \a parent
  *
- * \warning this constructor use's Heuristics function, so HeuristicHPair::setHeuristic()
- *          MUST be called.
+ * \warning this constructor use's Heuristics function, so
+ * HeuristicHPair::setHeuristic() MUST be called.
  */
-template < int N >
-Node<N>::Node(const int g, const Coord<N>& pos, const int &parenti, SearchDirection dir)
-: pos(pos),
-  parenti(parenti)
-{
-    m_g = g;
-    m_f = m_g + HeuristicHPair::getInstance()->calculate_h(pos, dir);
+template <int N>
+Node<N>::Node(const int g, const Coord<N> &pos, const int &parenti,
+              SearchDirection dir)
+    : pos(pos), parenti(parenti) {
+  m_g = g;
+  m_f = m_g + HeuristicHPair::getInstance()->calculate_h(pos, dir);
 }
 
-template < int N >
-std::ostream& operator<<(std::ostream &lhs, const Node<N> &rhs)
-{
-    lhs << rhs.pos << "\tg - " << rhs.m_g << " (h - " << rhs.get_h()
-        << " f - " << rhs.m_f << ")";
-    return lhs;
+template <int N>
+std::ostream &operator<<(std::ostream &lhs, const Node<N> &rhs) {
+  lhs << rhs.pos << "\tg - " << rhs.m_g << " (h - " << rhs.get_h() << " f - "
+      << rhs.m_f << ")";
+  return lhs;
 }
 
-template < int N >
-bool Node<N>::operator!=(const Node<N> &rhs) const
-{
-    if (m_f != rhs.m_f)
-        return true;
-    if (pos != rhs.pos)
-        return true;
-    return false;
+template <int N> bool Node<N>::operator!=(const Node<N> &rhs) const {
+  if (m_f != rhs.m_f)
+    return true;
+  if (pos != rhs.pos)
+    return true;
+  return false;
 }
 
 //! Set a node with maximum values on every camp
-template < int N >
-void Node<N>::set_max()
-{
-    parenti = (1 << N) - 1;
-    m_g = m_f = std::numeric_limits<int>::max();
-    pos = Sequences::get_final_coord<N>();
+template <int N> void Node<N>::set_max() {
+  parenti = (1 << N) - 1;
+  m_g = m_f = std::numeric_limits<int>::max();
+  pos = Sequences::get_final_coord<N>();
 }
 
 //! Check if coord \a c belongs to the sequences' search space
-template < int N >
-bool Node<N>::borderCheck(const Coord<N> &c) const
-{
-    Coord<N> final_coord = Sequences::get_final_coord<N>();
-    for (int i = 0; i < N; i++)
-        if (c[i] > final_coord[i])
-            return false;
-    return true;
+template <int N> bool Node<N>::borderCheck(const Coord<N> &c) const {
+  Coord<N> final_coord = Sequences::get_final_coord<N>();
+  for (int i = 0; i < N; i++)
+    if (c[i] > final_coord[i])
+      return false;
+  return true;
 }
-
-
 
 //! Return sequence \a i as a bitfield
-inline int bitSeq(const int &i)
-{
-    return 1 << i;
-}
+inline int bitSeq(const int &i) { return 1 << i; }
 
 //! Bit check if the number \a i has sequences \a s1 and \a s2
-inline bool bitSeqCheck(const int &i, const int &s1, const int &s2)
-{
-    return (i & bitSeq(s1)) && (i & bitSeq(s2));
+inline bool bitSeqCheck(const int &i, const int &s1, const int &s2) {
+  return (i & bitSeq(s1)) && (i & bitSeq(s2));
 }
 
 //! Bit check if the number \a i has sequence \a s1
-inline bool bitSeqCheck(const int &i, const int &s1)
-{
-    return (i & bitSeq(s1));
+inline bool bitSeqCheck(const int &i, const int &s1) {
+  return (i & bitSeq(s1));
 }
 
 /*!
@@ -129,105 +112,98 @@ inline bool bitSeqCheck(const int &i, const int &s1)
  * s2 is 1. (2, 1, 1) parent is (1, 1, 1). son[1] = 1 parent[1] = 1
  * It is also an gap.
  */
-template < int N >
-inline int Node<N>::pairCost(const int &neigh_num, const int &mm_cost, const int &s1, const int &s2) const
-{
-    if (bitSeqCheck(neigh_num, s1, s2))
-        return mm_cost;
+template <int N>
+inline int Node<N>::pairCost(const int &neigh_num, const int &mm_cost,
+                             const int &s1, const int &s2) const {
+  if (bitSeqCheck(neigh_num, s1, s2))
+    return mm_cost;
 
-    if (!bitSeqCheck(neigh_num, s1) &&
-        !bitSeqCheck(neigh_num, s2))
-        return Cost::GapGap;
+  if (!bitSeqCheck(neigh_num, s1) && !bitSeqCheck(neigh_num, s2))
+    return Cost::GapGap;
 
-    return Cost::GapCost;
+  return Cost::GapCost;
 }
 
 /*!
  * Add all neighboors/predecessors to a vector \a a.
  */
-template < int N >
-int Node<N>::getNeigh(std::vector<Node> a[], int map_size, int thread_map[], SearchDirection dir)
-{
-    int i;
-    Sequences *seq = Sequences::getInstance();
-    Coord<N> c;
+template <int N>
+int Node<N>::getNeigh(std::vector<Node> a[], int map_size, int thread_map[],
+                      SearchDirection dir) {
+  int i;
+  Sequences *seq = Sequences::getInstance();
+  Coord<N> c;
 
-    int n = bitSeq(N) - 1;
-    if (dir == SearchDirection::FORWARD)
-    {
-        std::vector< std::tuple<int, int, int> > pairwise_costs;
-        for (int x = 0; x < N - 1; x++)
-        {
-            for (int y = x + 1; y < N; y++)
-            {
-                int cost = Cost::cost(seq->get_seq(x)[pos[x]], seq->get_seq(y)[pos[y]]);
-                std::tuple<int, int, int> total_cost(cost, x, y);
-                pairwise_costs.push_back(total_cost);
-            }
-        }
-
-        for (i = 1; i <= n; i++)
-        {
-            c = pos.neigh(i);
-            if (borderCheck(c))
-            {
-                int costs = 0; // match, mismatch and gap sum-of-pairs cost
-
-                for (auto it = pairwise_costs.begin() ; it != pairwise_costs.end(); ++it)
-                    costs += pairCost(i, std::get<0>(*it), std::get<1>(*it), std::get<2>(*it));
-                a[c.get_id(map_size, thread_map)].push_back(Node(m_g + costs, c, i, SearchDirection::FORWARD));
-            }
-        }
+  int n = bitSeq(N) - 1;
+  if (dir == SearchDirection::FORWARD) {
+    std::vector<std::tuple<int, int, int>> pairwise_costs;
+    for (int x = 0; x < N - 1; x++) {
+      for (int y = x + 1; y < N; y++) {
+        int cost = Cost::cost(seq->get_seq(x)[pos[x]], seq->get_seq(y)[pos[y]]);
+        std::tuple<int, int, int> total_cost(cost, x, y);
+        pairwise_costs.push_back(total_cost);
+      }
     }
-    else // BACKWARD
-    {
-        for (i = 1; i <= n; i++)
-        {
-            bool valid = true;
-            for (int k = 0; k < N; ++k)
-            {
-                if ((i & bitSeq(k)) && pos[k] == 0)
-                {
-                    valid = false;
-                    break;
-                }
-            }
-            if (!valid) continue;
 
-            c = pos.parent(i);
+    for (i = 1; i <= n; i++) {
+      c = pos.neigh(i);
+      if (borderCheck(c)) {
+        int costs = 0; // match, mismatch and gap sum-of-pairs cost
 
-            std::vector< std::tuple<int, int, int> > pairwise_costs;
-            for (int x = 0; x < N - 1; x++)
-            {
-                for (int y = x + 1; y < N; y++)
-                {
-                    // Only compute the match/mismatch cost when both
-                    // sequences advance in this neighbor; pairCost()
-                    // returns GapCost or GapGap for the other cases,
-                    // so the value here is never used for those.
-                    int cost = 0;
-                    if (bitSeqCheck(i, x, y))
-                        cost = Cost::cost(seq->get_seq(x)[pos[x] - 1], seq->get_seq(y)[pos[y] - 1]);
-                    std::tuple<int, int, int> total_cost(cost, x, y);
-                    pairwise_costs.push_back(total_cost);
-                }
-            }
-
-            int costs = 0;
-            for (auto it = pairwise_costs.begin() ; it != pairwise_costs.end(); ++it)
-                costs += pairCost(i, std::get<0>(*it), std::get<1>(*it), std::get<2>(*it));
-            a[c.get_id(map_size, thread_map)].push_back(Node(m_g + costs, c, i, SearchDirection::BACKWARD));
-        }
+        for (auto it = pairwise_costs.begin(); it != pairwise_costs.end(); ++it)
+          costs +=
+              pairCost(i, std::get<0>(*it), std::get<1>(*it), std::get<2>(*it));
+        a[c.get_id(map_size, thread_map)].push_back(
+            Node(m_g + costs, c, i, SearchDirection::FORWARD));
+      }
     }
-    return 0;
+  } else // BACKWARD
+  {
+    for (i = 1; i <= n; i++) {
+      bool valid = true;
+      for (int k = 0; k < N; ++k) {
+        if ((i & bitSeq(k)) && pos[k] == 0) {
+          valid = false;
+          break;
+        }
+      }
+      if (!valid)
+        continue;
+
+      c = pos.parent(i);
+
+      std::vector<std::tuple<int, int, int>> pairwise_costs;
+      for (int x = 0; x < N - 1; x++) {
+        for (int y = x + 1; y < N; y++) {
+          // Only compute the match/mismatch cost when both
+          // sequences advance in this neighbor; pairCost()
+          // returns GapCost or GapGap for the other cases,
+          // so the value here is never used for those.
+          int cost = 0;
+          if (bitSeqCheck(i, x, y))
+            cost = Cost::cost(seq->get_seq(x)[pos[x] - 1],
+                              seq->get_seq(y)[pos[y] - 1]);
+          std::tuple<int, int, int> total_cost(cost, x, y);
+          pairwise_costs.push_back(total_cost);
+        }
+      }
+
+      int costs = 0;
+      for (auto it = pairwise_costs.begin(); it != pairwise_costs.end(); ++it)
+        costs +=
+            pairCost(i, std::get<0>(*it), std::get<1>(*it), std::get<2>(*it));
+      a[c.get_id(map_size, thread_map)].push_back(
+          Node(m_g + costs, c, i, SearchDirection::BACKWARD));
+    }
+  }
+  return 0;
 }
 
 // This file have a friend function that also need to be templated to max seq
-#define DECLARE_NODE_FRIEND( X ) \
-template std::ostream& operator<< < X >(std::ostream&, Node< X > const&); \
+#define DECLARE_NODE_FRIEND(X)                                                 \
+  template std::ostream &operator<< <X>(std::ostream &, Node<X> const &);
 
-#define DECLARE_NODE_TEMPLATE( X ) \
-template class Node< X >; \
+#define DECLARE_NODE_TEMPLATE(X) template class Node<X>;
 
 MAX_NUM_SEQ_HELPER(DECLARE_NODE_FRIEND);
 MAX_NUM_SEQ_HELPER(DECLARE_NODE_TEMPLATE);
