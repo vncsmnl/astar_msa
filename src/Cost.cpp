@@ -294,7 +294,7 @@ void Cost::set_cost_nuc()
 //! Compare \a r and \a l and return the cost.
 int Cost::cost(const char r, const char l)
 {
-    return cost_matrix[(int)r][(int)l];
+    return cost_matrix[(unsigned char)r][(unsigned char)l];
 }
 
 /*!
@@ -308,8 +308,8 @@ void Cost::init_cost_lut()
     {
         for (int l = 0; l < 128; ++l)
         {
-            // Only copy values within the valid range of cost_matrix
-            if (r < 'Z' && l < 'Z')
+            // Only copy values within the valid range of cost_matrix (0 to Z-1)
+            if (r < Z && l < Z)
                 cost_lut[r * 128 + l] = cost_matrix[r][l];
             else
                 cost_lut[r * 128 + l] = 0;
