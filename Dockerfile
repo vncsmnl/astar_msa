@@ -9,7 +9,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install dependencies needed to build the C++ project
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    cmake \
     libboost-program-options-dev \
     libboost-system-dev \
     libboost-filesystem-dev \
@@ -25,8 +24,7 @@ COPY . .
 # Configure and build the project in Release mode
 # Note: By default, the compiled binaries (msa_astar and msa_pastar)
 # will be placed in the /app/bin directory.
-RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \
-    && cmake --build build -j$(nproc)
+RUN make clean && make -j$(nproc)
 
 # ==============================================================================
 # Stage 2: Create a minimal runtime image (runner)
