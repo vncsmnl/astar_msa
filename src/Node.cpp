@@ -78,15 +78,7 @@ bool Node<N>::borderCheck(const Coord<N> &c) const
     return true;
 }
 
-template < int N >
-bool Node<N>::borderCheckBackward(const Coord<N> &c) const
-{
-    Coord<N> final_coord = Sequences::get_final_coord<N>();
-    for (int i = 0; i < N; i++)
-        if (c[i] > final_coord[i])
-            return false;
-    return true;
-}
+
 
 //! Return sequence \a i as a bitfield
 inline int bitSeq(const int &i)

@@ -40,7 +40,6 @@ class Node {
         int m_g; //!< exact cost of the path from the start
         int parenti; //!< Integer representing the parent
         bool borderCheck(const Coord<N> &c) const;
-        bool borderCheckBackward(const Coord<N> &c) const;
         inline int pairCost(const int &neigh_num, const int &mm_cost, const int &s1, const int &s2) const;
 };
 
