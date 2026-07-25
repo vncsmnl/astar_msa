@@ -167,7 +167,7 @@ void HeuristicHPair::init()
  * Parallelize the calculation when there are many alignments
  */
 template <int N>
-int HeuristicHPair::calculate_h(const Coord<N> &c) const
+int HeuristicHPair::calculate_h_raw(const Coord<N> &c) const
 {
     size_t num_aligns = mAligns.size();
     int seq_num = Sequences::get_seq_num();
@@ -235,7 +235,25 @@ int HeuristicHPair::calculate_h(const Coord<N> &c) const
     return h / v_minus_2;
 }
 
+template <int N>
+int HeuristicHPair::calculate_h(const Coord<N> &c, SearchDirection dir) const
+{
+    if (dir == SearchDirection::FORWARD)
+    {
+        return calculate_h_raw(c);
+    }
+    else
+    {
+        Coord<N> final_coord = Sequences::get_final_coord<N>();
+        Coord<N> complement;
+        for (int i = 0; i < N; ++i)
+            complement[i] = final_coord[i] - c[i];
+        return calculate_h_raw(complement);
+    }
+}
+
 #define DECLARE_TEMPLATE(X) \
-    template int HeuristicHPair::calculate_h<X>(Coord<X> const &) const;
+    template int HeuristicHPair::calculate_h_raw<X>(Coord<X> const &) const; \
+    template int HeuristicHPair::calculate_h<X>(Coord<X> const &, SearchDirection) const;
 
 MAX_NUM_SEQ_HELPER(DECLARE_TEMPLATE);

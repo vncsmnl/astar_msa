@@ -9,6 +9,7 @@
 #define _HEURISTICHPAIR_H
 
 #include "Coord.h"
+#include "SearchDirection.h"
 #include "TrioAlign.h"
 #include "Sequences.h"
 #include <thread>
@@ -24,7 +25,9 @@ public:
     void destroyInstance();
     void init();
     template <int N>
-    int calculate_h(const Coord<N> &c) const;
+    int calculate_h(const Coord<N> &c, SearchDirection dir = SearchDirection::FORWARD) const;
+    template <int N>
+    int calculate_h_raw(const Coord<N> &c) const;
 
 private:
     static HeuristicHPair instance;
