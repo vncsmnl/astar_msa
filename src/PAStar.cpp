@@ -499,6 +499,11 @@ template <int N> bool PAStar<N>::check_stop(int tid, SearchDirection dir) {
 template <int N>
 void PAStar<N>::check_meeting(int tid, const Node<N> &current,
                               SearchDirection dir) {
+  // Design invariant: Coord<N>::get_id relies solely on geometric position in
+  // the grid, independent of SearchDirection. Thread 'tid' is the exclusive
+  // owner and sole writer of partition 'tid' for both ClosedList_F and
+  // ClosedList_B. Therefore, accessing OppositeClosedList[tid] directly from
+  // thread 'tid' is data-race-free and lock-free.
   boost::unordered_map<Coord<N>, Node<N>> *OppositeClosedList =
       (dir == SearchDirection::FORWARD) ? ClosedList_B : ClosedList_F;
   auto opp_it = OppositeClosedList[tid].find(current.pos);

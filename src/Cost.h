@@ -49,7 +49,13 @@ class Cost {
 
         //! Flat lookup table for SIMD gather: indexed by [char1 * 128 + char2]
         static int cost_lut[128 * 128];
-        static const int* get_cost_lut() { return cost_lut; }
+        static bool lut_initialized;
+        static const int* get_cost_lut() {
+            if (!lut_initialized) {
+                init_cost_lut();
+            }
+            return cost_lut;
+        }
         static void init_cost_lut();
     private:
         static int cost_matrix['Z']['Z'];

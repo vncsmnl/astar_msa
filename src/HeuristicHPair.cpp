@@ -14,10 +14,12 @@
 #include "TimeCounter.h"
 #include "TrioAlign.h"
 
+#include <stdexcept>
+
 //! Singleton instance
 HeuristicHPair HeuristicHPair::instance;
 
-HeuristicHPair::HeuristicHPair() : m_stop(false) {
+HeuristicHPair::HeuristicHPair() {
   mAligns.clear();
   mAligns_B.clear();
   // Detect the number of available threads
@@ -33,7 +35,6 @@ HeuristicHPair::~HeuristicHPair() { destroyInstance(); }
 
 //! Free's the memory, destroying the instance
 void HeuristicHPair::destroyInstance() {
-  destroyThreadPool();
   for (std::vector<TrioAlign *>::iterator it = mAligns.begin();
        it != mAligns.end(); ++it)
     delete *it;
@@ -42,25 +43,6 @@ void HeuristicHPair::destroyInstance() {
        it != mAligns_B.end(); ++it)
     delete *it;
   mAligns_B.clear();
-}
-
-//! Initializes the thread pool - not used in the current version as the
-//! calculation is very fast
-void HeuristicHPair::initThreadPool() {
-  // Thread pool is not necessary for this specific case
-  // because each heuristic calculation is very fast
-}
-
-//! Destroys the thread pool
-void HeuristicHPair::destroyThreadPool() {
-  m_stop = true;
-  m_cv.notify_all();
-  for (auto &t : m_threads) {
-    if (t.joinable()) {
-      t.join();
-    }
-  }
-  m_threads.clear();
 }
 
 /*!
@@ -74,6 +56,11 @@ void HeuristicHPair::init() {
   TimeCounter tp("Phase 1 - init heuristic (h3all): ");
   Sequences *seq = Sequences::getInstance();
   int seq_num = Sequences::get_seq_num();
+
+  if (seq_num < 3) {
+    throw std::invalid_argument("HeuristicHPair - Multiple Sequence Alignment "
+                                "needs at least 3 sequences.");
+  }
 
   std::cout << "Starting trio alignments... done!" << std::flush;
 #ifdef PAIRALIGN_SCORE
@@ -165,7 +152,9 @@ void HeuristicHPair::init() {
 template <int N> int HeuristicHPair::calculate_h_raw(const Coord<N> &c) const {
   size_t num_aligns = mAligns.size();
   int seq_num = Sequences::get_seq_num();
-  int v_minus_2 = seq_num - 2; // Number of triplets in which each pair appears
+  int v_minus_2 = std::max(
+      1,
+      seq_num - 2); // Number of triplets in which each pair appears (guarded)
 
   int h = 0;
   for (size_t idx = 0; idx < num_aligns; ++idx) {
@@ -179,10 +168,13 @@ template <int N> int HeuristicHPair::calculate_h_raw(const Coord<N> &c) const {
   return h / v_minus_2;
 }
 
-template <int N> int HeuristicHPair::calculate_h_raw_B(const Coord<N> &c) const {
+template <int N>
+int HeuristicHPair::calculate_h_raw_B(const Coord<N> &c) const {
   size_t num_aligns = mAligns_B.size();
   int seq_num = Sequences::get_seq_num();
-  int v_minus_2 = seq_num - 2; // Number of triplets in which each pair appears
+  int v_minus_2 = std::max(
+      1,
+      seq_num - 2); // Number of triplets in which each pair appears (guarded)
 
   int h = 0;
   for (size_t idx = 0; idx < num_aligns; ++idx) {

@@ -10,6 +10,7 @@
 #include <limits>
 #include <list>
 #include <map>
+#include <stdexcept>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
@@ -172,7 +173,9 @@ void backtrace_create_alignment_bidirectional(
       std::cerr << "ERRO FATAL no backtrace bidirecional (forward): "
                 << "parent " << parent_pos << " nao encontrado em ClosedList_F["
                 << id << "]. " << "current.pos=" << current.pos << std::endl;
-      std::abort();
+      throw std::runtime_error(
+          "Erro fatal no backtrace bidirecional (forward): parent nao "
+          "encontrado na ClosedList_F.");
     }
     current = it->second;
   }
@@ -198,7 +201,9 @@ void backtrace_create_alignment_bidirectional(
       std::cerr << "ERRO FATAL no backtrace bidirecional (backward): "
                 << "parent " << parent_pos << " nao encontrado em ClosedList_B["
                 << id << "]. " << "current.pos=" << current.pos << std::endl;
-      std::abort();
+      throw std::runtime_error(
+          "Erro fatal no backtrace bidirecional (backward): parent nao "
+          "encontrado na ClosedList_B.");
     }
     current = it->second;
   }

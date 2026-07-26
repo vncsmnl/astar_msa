@@ -9,6 +9,7 @@ static Cost c;
 
 int Cost::cost_matrix[Z][Z] = {};
 int Cost::cost_lut[128 * 128] = {};
+bool Cost::lut_initialized = false;
 int Cost::GapCost = 30;
 int Cost::GapGap = 30;
 
@@ -306,4 +307,5 @@ void Cost::init_cost_lut() {
         cost_lut[r * 128 + l] = 0;
     }
   }
+  lut_initialized = true;
 }

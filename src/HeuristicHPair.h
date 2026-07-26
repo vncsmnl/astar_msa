@@ -38,14 +38,6 @@ private:
     std::vector<TrioAlign *> mAligns;
     std::vector<TrioAlign *> mAligns_B;
 
-    // Thread pool for heuristic calculation
-    mutable std::mutex m_queue_mutex;
-    mutable std::condition_variable m_cv;
-    std::vector<std::thread> m_threads;
-    std::atomic<bool> m_stop;
     int m_num_threads;
-
-    void initThreadPool();
-    void destroyThreadPool();
 };
 #endif
