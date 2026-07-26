@@ -28,12 +28,15 @@ public:
     int calculate_h(const Coord<N> &c, SearchDirection dir = SearchDirection::FORWARD) const;
     template <int N>
     int calculate_h_raw(const Coord<N> &c) const;
+    template <int N>
+    int calculate_h_raw_B(const Coord<N> &c) const;
 
 private:
     static HeuristicHPair instance;
     HeuristicHPair();
     ~HeuristicHPair();
     std::vector<TrioAlign *> mAligns;
+    std::vector<TrioAlign *> mAligns_B;
 
     // Thread pool for heuristic calculation
     mutable std::mutex m_queue_mutex;

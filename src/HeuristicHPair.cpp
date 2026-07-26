@@ -19,6 +19,7 @@ HeuristicHPair HeuristicHPair::instance;
 
 HeuristicHPair::HeuristicHPair() : m_stop(false) {
   mAligns.clear();
+  mAligns_B.clear();
   // Detect the number of available threads
   m_num_threads = std::thread::hardware_concurrency();
   if (m_num_threads == 0)
@@ -37,6 +38,10 @@ void HeuristicHPair::destroyInstance() {
        it != mAligns.end(); ++it)
     delete *it;
   mAligns.clear();
+  for (std::vector<TrioAlign *>::iterator it = mAligns_B.begin();
+       it != mAligns_B.end(); ++it)
+    delete *it;
+  mAligns_B.clear();
 }
 
 //! Initializes the thread pool - not used in the current version as the
@@ -99,6 +104,7 @@ void HeuristicHPair::init() {
   // Pre-allocate the results vector
   size_t total_tasks = tasks.size();
   mAligns.resize(total_tasks);
+  mAligns_B.resize(total_tasks);
 
   std::cout << "\nNumber of triplets: " << total_tasks << " (C(" << seq_num
             << ",3))" << std::endl;
@@ -111,11 +117,19 @@ void HeuristicHPair::init() {
   auto worker = [&](size_t start_idx, size_t end_idx) {
     for (size_t idx = start_idx; idx < end_idx; ++idx) {
       const AlignTask &task = tasks[idx];
-      TrioAlign *a = new TrioAlign(task.t, seq->get_seq(task.i),
-                                   seq->get_seq(task.j), seq->get_seq(task.k));
+      std::string s_i = seq->get_seq(task.i);
+      std::string s_j = seq->get_seq(task.j);
+      std::string s_k = seq->get_seq(task.k);
 
-      // Store result in the correct position
+      TrioAlign *a = new TrioAlign(task.t, s_i, s_j, s_k);
       mAligns[idx] = a;
+
+      std::string s_i_rev(s_i.rbegin(), s_i.rend());
+      std::string s_j_rev(s_j.rbegin(), s_j.rend());
+      std::string s_k_rev(s_k.rbegin(), s_k.rend());
+
+      TrioAlign *a_b = new TrioAlign(task.t, s_i_rev, s_j_rev, s_k_rev);
+      mAligns_B[idx] = a_b;
     }
   };
 
@@ -168,6 +182,22 @@ template <int N> int HeuristicHPair::calculate_h_raw(const Coord<N> &c) const {
   return h / v_minus_2;
 }
 
+template <int N> int HeuristicHPair::calculate_h_raw_B(const Coord<N> &c) const {
+  size_t num_aligns = mAligns_B.size();
+  int seq_num = Sequences::get_seq_num();
+  int v_minus_2 = seq_num - 2; // Number of triplets in which each pair appears
+
+  int h = 0;
+  for (size_t idx = 0; idx < num_aligns; ++idx) {
+    TrioAlign *align = mAligns_B[idx];
+    int x = std::get<0>(align->getTrio());
+    int y = std::get<1>(align->getTrio());
+    int z = std::get<2>(align->getTrio());
+    h += align->getScore(c[x], c[y], c[z]);
+  }
+  return h / v_minus_2;
+}
+
 template <int N>
 int HeuristicHPair::calculate_h(const Coord<N> &c, SearchDirection dir) const {
   if (dir == SearchDirection::FORWARD) {
@@ -177,12 +207,13 @@ int HeuristicHPair::calculate_h(const Coord<N> &c, SearchDirection dir) const {
     Coord<N> complement;
     for (int i = 0; i < N; ++i)
       complement[i] = final_coord[i] - c[i];
-    return calculate_h_raw(complement);
+    return calculate_h_raw_B(complement);
   }
 }
 
 #define DECLARE_TEMPLATE(X)                                                    \
   template int HeuristicHPair::calculate_h_raw<X>(Coord<X> const &) const;     \
+  template int HeuristicHPair::calculate_h_raw_B<X>(Coord<X> const &) const;   \
   template int HeuristicHPair::calculate_h<X>(Coord<X> const &,                \
                                               SearchDirection) const;
 

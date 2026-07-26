@@ -270,12 +270,6 @@ template <int N> bool PAStar<N>::MeetTermination(int tid) {
   if (minF >= current_mu && minB >= current_mu)
     return true;
 
-  if (minF != std::numeric_limits<int>::max() &&
-      minB != std::numeric_limits<int>::max()) {
-    if (minF + minB >= current_mu)
-      return true;
-  }
-
   return false;
 }
 
