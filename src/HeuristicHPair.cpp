@@ -106,9 +106,6 @@ void HeuristicHPair::init() {
   mAligns.resize(total_tasks);
   mAligns_B.resize(total_tasks);
 
-  std::cout << "\nNumber of triplets: " << total_tasks << " (C(" << seq_num
-            << ",3))" << std::endl;
-
   // Mutex to control access to the results vector (not necessary here, but kept
   // for safety)
   std::mutex result_mutex;

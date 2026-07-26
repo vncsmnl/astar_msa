@@ -522,8 +522,6 @@ void PAStar<N>::check_meeting(int tid, const Node<N> &current,
           best_meeting_node_F = opp_it->second;
           best_meeting_node_B = current;
         }
-        std::cout << "Meeting found at " << current.pos << " with cost "
-                  << meeting_cost << std::endl;
         meeting_found = true;
         wake_all_queue();
       }
