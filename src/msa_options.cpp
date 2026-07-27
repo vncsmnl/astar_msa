@@ -46,9 +46,7 @@ int msa_options_core(msa_option_type type, int argc, char *argv[],
       "log_file,l", po::value<std::string>(&opt.log_file)->default_value(""),
       "Write detailed execution log to the specified file")(
       "verbose", "Enable verbose output with iteration details")(
-      "memory_debug",
-      "memory debug option")("backward,b", "Run search in BACKWARD direction")(
-      "bidirectional,B", "Run search in BIDIRECTIONAL mode")
+      "memory_debug", "memory debug option")
       /* Force quit should be used only for debug purposes. Check the struct for
          full explanation; it is good not to explain to the users what it does.
        */
@@ -127,13 +125,6 @@ int msa_options_core(msa_option_type type, int argc, char *argv[],
   }
   if (vm.count("fasta_output")) {
     opt.common_options.fasta_output_file = fasta;
-  }
-  if (vm.count("backward")) {
-    opt.common_options.dir = SearchDirection::BACKWARD;
-    opt.dir = SearchDirection::BACKWARD;
-  }
-  if (vm.count("bidirectional")) {
-    opt.common_options.bidirectional = true;
   }
   if (vm.count("version")) {
     if (type == Msa_Pastar)

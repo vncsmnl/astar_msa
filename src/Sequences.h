@@ -26,7 +26,6 @@ class Sequences
         template <int N> static Coord<N> get_final_coord();
         template <int N> static Coord<N> get_initial_coord();
         template <int N> static Node<N> get_initial_node();
-        template <int N> static Node<N> get_final_node();
         template <int N> static bool is_final(const Coord<N> &c);
 
     private:

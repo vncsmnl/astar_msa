@@ -21,24 +21,18 @@
 #include "backtrace.h"
 
 template <int N>
-PAStar<N>::PAStar(const Node<N> &node_zero, const struct PAStarOpt &opt,
-                  SearchDirection dir)
-    : m_options(opt), m_dir(dir) {
-  std::cout << "Running PA-Star (" << get_direction_name(dir)
-            << ") with: " << opt.threads_num << " threads, "
+PAStar<N>::PAStar(const Node<N> &node_zero, const struct PAStarOpt &opt)
+    : m_options(opt) {
+  std::cout << "Running PA-Star with: " << opt.threads_num << " threads, "
             << Coord<N>::get_hash_name() << " hash, "
             << Coord<N>::get_hash_shift() << " shift.\n";
 
   end_cond = false;
-  sync_count = 0;
   final_node.set_max();
   iteration_counter = 0;
 
-  OpenList_F = new PriorityList<N>[m_options.threads_num]();
-  OpenList_B = new PriorityList<N>[m_options.threads_num]();
-  ClosedList_F =
-      new boost::unordered_map<Coord<N>, Node<N>>[m_options.threads_num]();
-  ClosedList_B =
+  OpenList = new PriorityList<N>[m_options.threads_num]();
+  ClosedList =
       new boost::unordered_map<Coord<N>, Node<N>>[m_options.threads_num]();
 
   // Initialize log file if specified
@@ -61,29 +55,12 @@ PAStar<N>::PAStar(const Node<N> &node_zero, const struct PAStarOpt &opt,
   configure_thread_map();
   nodes_reopen = new long long int[m_options.threads_num]();
   nodes_processed = new long long int[m_options.threads_num]();
-  meeting_updates = new long long int[m_options.threads_num]();
 
   queue_mutex = new std::mutex[m_options.threads_num]();
   queue_condition = new std::condition_variable[m_options.threads_num]();
-  queue_nodes_F = new std::vector<Node<N>>[m_options.threads_num]();
-  queue_nodes_B = new std::vector<Node<N>>[m_options.threads_num]();
+  queue_nodes = new std::vector<Node<N>>[m_options.threads_num]();
 
-  mu = std::numeric_limits<int>::max();
-  meeting_found = false;
-  thread_ready_to_stop = new std::atomic<bool>[m_options.threads_num]();
-
-  // Enqueue first node according to direction or bidirectional mode
-  if (m_options.common_options.bidirectional) {
-    Node<N> start_F = Sequences::get_initial_node<N>();
-    int id_F = start_F.pos.get_id(map_size, thread_map);
-    OpenList_F[id_F].enqueue(start_F);
-
-    Node<N> start_B = Sequences::get_final_node<N>();
-    int id_B = start_B.pos.get_id(map_size, thread_map);
-    OpenList_B[id_B].enqueue(start_B);
-  } else {
-    get_open_list(dir)[0].enqueue(node_zero);
-  }
+  OpenList[0].enqueue(node_zero);
 }
 
 template <int N> PAStar<N>::~PAStar() {
@@ -91,19 +68,14 @@ template <int N> PAStar<N>::~PAStar() {
     log_stream->close();
     delete log_stream;
   }
-  delete[] OpenList_F;
-  delete[] OpenList_B;
-  delete[] ClosedList_F;
-  delete[] ClosedList_B;
+  delete[] OpenList;
+  delete[] ClosedList;
   delete[] thread_map;
   delete[] nodes_reopen;
   delete[] nodes_processed;
-  delete[] meeting_updates;
-  delete[] thread_ready_to_stop;
   delete[] queue_mutex;
   delete[] queue_condition;
-  delete[] queue_nodes_F;
-  delete[] queue_nodes_B;
+  delete[] queue_nodes;
 }
 
 template <int N> void PAStar<N>::configure_thread_map() {
@@ -114,14 +86,11 @@ template <int N> void PAStar<N>::configure_thread_map() {
   int cont = 0;
   for (int i = 0; i < m_options.hybrid_conf.p_cores_num; i++) {
     for (int j = 0; j < m_options.hybrid_conf.p_cores_size; j++) {
-      // std::cout << cont << ": " << i << std::endl;
       thread_map[cont++] = i;
     }
   }
   for (int i = 0; i < m_options.hybrid_conf.e_cores_num; i++) {
     for (int j = 0; j < m_options.hybrid_conf.e_cores_size; j++) {
-      // std::cout << cont << ": " << i + m_options.hybrid_conf.p_cores_num <<
-      // std::endl;
       thread_map[cont++] = i + m_options.hybrid_conf.p_cores_num;
     }
   }
@@ -134,11 +103,8 @@ template <int N> void PAStar<N>::configure_thread_map() {
 }
 
 template <int N> int PAStar<N>::set_affinity(int tid) {
-  // std::cout << "No Affinity: " << m_options.no_affinity << std::endl;
   if (m_options.no_affinity)
     return 0;
-  // std::cout << "Tid: " << tid << " Affinity: " <<
-  // m_options.thread_affinity.at(tid) << std::endl;
   cpu_set_t mask;
   CPU_ZERO(&mask);
   CPU_SET(m_options.thread_affinity.at(tid), &mask);
@@ -152,11 +118,7 @@ template <int N> int PAStar<N>::set_affinity(int tid) {
  * Parallel access should never occur on OpenList and ClosedList with
  * same tids.
  */
-template <int N>
-void PAStar<N>::enqueue(int tid, std::vector<Node<N>> &nodes,
-                        SearchDirection dir) {
-  PriorityList<N> *OpenList = get_open_list(dir);
-  boost::unordered_map<Coord<N>, Node<N>> *ClosedList = get_closed_list(dir);
+template <int N> void PAStar<N>::enqueue(int tid, std::vector<Node<N>> &nodes) {
   typename boost::unordered_map<Coord<N>, Node<N>>::iterator c_search;
 
   // Buffer to accumulate output - avoids multiple locks
@@ -204,24 +166,19 @@ void PAStar<N>::enqueue(int tid, std::vector<Node<N>> &nodes,
 //! Consume the queue with id \a tid
 template <int N> void PAStar<N>::consume_queue(int tid) {
   std::unique_lock<std::mutex> queue_lock(queue_mutex[tid]);
-  std::vector<Node<N>> nodes_F(queue_nodes_F[tid]);
-  std::vector<Node<N>> nodes_B(queue_nodes_B[tid]);
-  queue_nodes_F[tid].clear();
-  queue_nodes_B[tid].clear();
+  std::vector<Node<N>> nodes(queue_nodes[tid]);
+  queue_nodes[tid].clear();
   queue_lock.unlock();
 
-  if (!nodes_F.empty())
-    enqueue(tid, nodes_F, SearchDirection::FORWARD);
-  if (!nodes_B.empty())
-    enqueue(tid, nodes_B, SearchDirection::BACKWARD);
+  if (!nodes.empty())
+    enqueue(tid, nodes);
   return;
 }
 
 //! Wait something on the queue
 template <int N> void PAStar<N>::wait_queue(int tid) {
   std::unique_lock<std::mutex> queue_lock(queue_mutex[tid]);
-  while (end_cond == false && queue_nodes_F[tid].empty() &&
-         queue_nodes_B[tid].empty()) {
+  while (end_cond == false && queue_nodes[tid].empty()) {
     queue_condition[tid].wait(queue_lock);
   }
   return;
@@ -236,89 +193,17 @@ template <int N> void PAStar<N>::wake_all_queue() {
   return;
 }
 
-//! Sync all threads
-template <int N> void PAStar<N>::sync_threads() {
-  std::unique_lock<std::mutex> sync_lock(sync_mutex);
-  int gen = sync_generation;
-  if (++sync_count < m_options.threads_num) {
-    sync_condition.wait(
-        sync_lock, [this, gen]() -> bool { return gen != sync_generation; });
-  } else {
-    sync_count = 0;
-    sync_generation++;
-    sync_condition.notify_all();
-  }
-}
-
-template <int N> bool PAStar<N>::MeetTermination(int tid) {
-  if (!meeting_found)
-    return false;
-
-  int current_mu = mu.load();
-
-  bool emptyF = OpenList_F[tid].empty();
-  bool emptyB = OpenList_B[tid].empty();
-
-  if (emptyF && emptyB)
-    return true;
-
-  int minF = emptyF ? std::numeric_limits<int>::max()
-                    : OpenList_F[tid].get_highest_priority();
-  int minB = emptyB ? std::numeric_limits<int>::max()
-                    : OpenList_B[tid].get_highest_priority();
-
-  if (minF >= current_mu && minB >= current_mu)
-    return true;
-
-  return false;
-}
-
 //! Execute the pa_star algorithm until all nodes expand the same final node
 template <int N>
-void PAStar<N>::worker_inner(int tid, const Coord<N> &coord_final,
-                             SearchDirection dir) {
+void PAStar<N>::worker_inner(int tid, const Coord<N> &coord_final) {
   Node<N> current;
   std::vector<Node<N>> *neigh = new std::vector<Node<N>>[m_options.threads_num];
 
   // Loop ended by process_final_node or check_stop
   while (end_cond == false) {
     typename boost::unordered_map<Coord<N>, Node<N>>::iterator c_search;
-    SearchDirection curr_dir = dir;
 
     consume_queue(tid);
-
-    if (m_options.common_options.bidirectional) {
-      // Reset ready-to-stop flag after consuming new work
-      thread_ready_to_stop[tid] = false;
-
-      bool emptyF = OpenList_F[tid].empty();
-      bool emptyB = OpenList_B[tid].empty();
-      int minF = emptyF ? std::numeric_limits<int>::max()
-                        : OpenList_F[tid].get_highest_priority();
-      int minB = emptyB ? std::numeric_limits<int>::max()
-                        : OpenList_B[tid].get_highest_priority();
-
-      if (this->MeetTermination(tid)) {
-        break;
-      }
-
-      if (emptyF && emptyB) {
-        wait_queue(tid);
-        continue;
-      } else if (emptyF)
-        curr_dir = SearchDirection::BACKWARD;
-      else if (emptyB)
-        curr_dir = SearchDirection::FORWARD;
-      else if (minF <= minB)
-        curr_dir = SearchDirection::FORWARD;
-      else
-        curr_dir = SearchDirection::BACKWARD;
-    }
-
-    PriorityList<N> *OpenList = get_open_list(curr_dir);
-    boost::unordered_map<Coord<N>, Node<N>> *ClosedList =
-        get_closed_list(curr_dir);
-    std::vector<Node<N>> *queue_nodes = get_queue_nodes(curr_dir);
 
     // Dequeue phase
     if (OpenList[tid].dequeue(current) == false) {
@@ -335,47 +220,21 @@ void PAStar<N>::worker_inner(int tid, const Coord<N> &coord_final,
     }
 
     ClosedList[tid][current.pos] = current;
-    check_meeting(tid, current, curr_dir);
 
-    if (m_options.common_options.bidirectional) {
-      if (meeting_found) {
-        int current_mu = mu.load();
-        int minF = OpenList_F[tid].empty()
-                       ? std::numeric_limits<int>::max()
-                       : OpenList_F[tid].get_highest_priority();
-        int minB = OpenList_B[tid].empty()
-                       ? std::numeric_limits<int>::max()
-                       : OpenList_B[tid].get_highest_priority();
-        if (minF >= current_mu && minB >= current_mu) {
-          thread_ready_to_stop[tid] = true;
-          bool all_ready = true;
-          for (int i = 0; i < m_options.threads_num; ++i) {
-            if (!thread_ready_to_stop[i].load()) {
-              all_ready = false;
-              break;
-            }
-          }
-          if (all_ready) {
-            end_cond = true;
-            wake_all_queue();
-            break;
-          }
-        }
-      }
-    } else if (current.pos == coord_final) {
+    if (current.pos == coord_final) {
       process_final_node(tid, current);
       continue;
     }
 
     // Expand phase
-    current.getNeigh(neigh, map_size, thread_map, curr_dir);
+    current.getNeigh(neigh, map_size, thread_map);
 
     // Reconciliation phase
     // Try 1
     std::vector<int> missing_threads;
     for (int i = 0; i < m_options.threads_num; i++) {
       if (i == tid)
-        enqueue(tid, neigh[i], curr_dir);
+        enqueue(tid, neigh[i]);
       else if (neigh[i].size() != 0) {
         std::unique_lock<std::mutex> queue_lock(queue_mutex[i],
                                                 std::defer_lock);
@@ -427,8 +286,6 @@ template <int N> void PAStar<N>::process_final_node(int tid, const Node<N> &n) {
   if (final_node.get_f() < n.get_f())
     return;
 
-  std::vector<Node<N>> *queue_nodes = get_queue_nodes(m_dir);
-
   if (n.pos.get_id(map_size, thread_map) == (unsigned int)tid) {
     // Broadcast the node
     final_node = n;
@@ -454,188 +311,62 @@ template <int N> void PAStar<N>::process_final_node(int tid, const Node<N> &n) {
   return;
 }
 
-template <int N> bool PAStar<N>::check_stop(int tid, SearchDirection dir) {
-  if (m_options.common_options.bidirectional) {
-    wake_all_queue();
-    sync_threads();
-
-    consume_queue(tid);
-
-    thread_ready_to_stop[tid] = this->MeetTermination(tid);
-    sync_threads();
-
-    if (tid == 0) {
-      bool all_ready = true;
-      for (int i = 0; i < m_options.threads_num; ++i) {
-        if (!thread_ready_to_stop[i].load()) {
-          all_ready = false;
-          break;
-        }
-      }
-      end_cond = all_ready;
-    }
-
-    sync_threads();
-    return (end_cond == false);
-  }
-
+template <int N> bool PAStar<N>::check_stop(int tid) {
   wake_all_queue();
-  sync_threads();
   Node<N> n = final_node;
   consume_queue(tid);
-  if (get_open_list(dir)[tid].get_highest_priority() < final_node.get_f()) {
+  if (OpenList[tid].get_highest_priority() < final_node.get_f()) {
     end_cond = false;
   }
-  sync_threads();
   if (end_cond == false) {
-    get_closed_list(dir)[tid].erase(n.pos);
+    ClosedList[tid].erase(n.pos);
     if (n.pos.get_id(map_size, thread_map) == (unsigned int)tid)
-      get_open_list(dir)[tid].conditional_enqueue(n);
+      OpenList[tid].conditional_enqueue(n);
     return true;
   }
   return false;
 }
 
-template <int N>
-void PAStar<N>::check_meeting(int tid, const Node<N> &current,
-                              SearchDirection dir) {
-  // Design invariant: Coord<N>::get_id relies solely on geometric position in
-  // the grid, independent of SearchDirection. Thread 'tid' is the exclusive
-  // owner and sole writer of partition 'tid' for both ClosedList_F and
-  // ClosedList_B. Therefore, accessing OppositeClosedList[tid] directly from
-  // thread 'tid' is data-race-free and lock-free.
-  boost::unordered_map<Coord<N>, Node<N>> *OppositeClosedList =
-      (dir == SearchDirection::FORWARD) ? ClosedList_B : ClosedList_F;
-  auto opp_it = OppositeClosedList[tid].find(current.pos);
-  if (opp_it != OppositeClosedList[tid].end()) {
-    int meeting_cost = (dir == SearchDirection::FORWARD)
-                           ? (current.get_g() + opp_it->second.get_g())
-                           : (opp_it->second.get_g() + current.get_g());
-
-    meeting_updates[tid] += 1;
-
-    // Use the mutex to ensure mu and best_meeting_node_F/B are updated
-    // atomically together, preventing a stale-node race.
-    if (meeting_cost < mu.load()) {
-      std::lock_guard<std::mutex> lock(meeting_mutex);
-      if (meeting_cost < mu.load()) {
-        mu.store(meeting_cost);
-        if (dir == SearchDirection::FORWARD) {
-          best_meeting_node_F = current;
-          best_meeting_node_B = opp_it->second;
-        } else {
-          best_meeting_node_F = opp_it->second;
-          best_meeting_node_B = current;
-        }
-        meeting_found = true;
-        wake_all_queue();
-      }
-    }
-  }
-}
-
 //! Execute a worker thread. This thread have id \a tid
-template <int N>
-int PAStar<N>::worker(int tid, const Coord<N> &coord_final,
-                      SearchDirection dir) {
+template <int N> int PAStar<N>::worker(int tid, const Coord<N> &coord_final) {
   set_affinity(tid);
   do {
-    worker_inner(tid, coord_final, dir);
-  } while (check_stop(tid, dir));
+    worker_inner(tid, coord_final);
+  } while (check_stop(tid));
 
   return 0;
 }
 
 template <int N> void PAStar<N>::print_nodes_count() {
-  if (m_options.common_options.bidirectional) {
-    long long int open_F_total = 0, open_B_total = 0;
-    long long int closed_F_total = 0, closed_B_total = 0;
-    long long int nodes_processed_total = 0, nodes_reopen_total = 0;
-    long long int meeting_updates_total = 0;
+  long long int nodes_total = 0;
+  long long int open_list_total = 0;
+  long long int closed_list_total = 0;
+  long long int nodes_processed_total = 0;
+  long long int nodes_reopen_total = 0;
 
-    std::cout << "Total nodes count (Bidirectional Search):" << std::endl;
-    for (int i = 0; i < m_options.threads_num; ++i) {
-      long long int open_F = OpenList_F[i].size();
-      long long int open_B = OpenList_B[i].size();
-      long long int closed_F = ClosedList_F[i].size();
-      long long int closed_B = ClosedList_B[i].size();
-      long long int total_local =
-          open_F + open_B + closed_F + closed_B + nodes_reopen[i];
-
-      std::cout << "tid " << i << "\tOpen_F: " << open_F
-                << "\tClosed_F: " << closed_F << "\tOpen_B: " << open_B
-                << "\tClosed_B: " << closed_B << "\tReopen: " << nodes_reopen[i]
-                << "\tTotal: " << total_local
-                << "\t(Processed: " << nodes_processed[i]
-                << ", Meetings: " << meeting_updates[i] << ")\n";
-
-      open_F_total += open_F;
-      open_B_total += open_B;
-      closed_F_total += closed_F;
-      closed_B_total += closed_B;
-      nodes_reopen_total += nodes_reopen[i];
-      nodes_processed_total += nodes_processed[i];
-      meeting_updates_total += meeting_updates[i];
-    }
-
-    long long int grand_total = open_F_total + open_B_total + closed_F_total +
-                                closed_B_total + nodes_reopen_total;
-    std::cout << "Sum" << "\tOpen_F: " << open_F_total
-              << "\tClosed_F: " << closed_F_total
-              << "\tOpen_B: " << open_B_total
-              << "\tClosed_B: " << closed_B_total
-              << "\tReopen: " << nodes_reopen_total
-              << "\tTotal: " << grand_total
-              << "\t(Processed: " << nodes_processed_total
-              << ", Meetings: " << meeting_updates_total << ")\n";
-
-    if (meeting_found) {
-      std::cout << "Optimal Meeting Point: " << best_meeting_node_F.pos
-                << " with cost (mu): " << mu.load() << std::endl;
-    }
-  } else {
-    long long int nodes_total = 0;
-    long long int open_list_total = 0;
-    long long int closed_list_total = 0;
-    long long int nodes_processed_total = 0;
-    long long int nodes_reopen_total = 0;
-
-    PriorityList<N> *OpenList = get_open_list(m_dir);
-    boost::unordered_map<Coord<N>, Node<N>> *ClosedList =
-        get_closed_list(m_dir);
-
-    std::cout << "Total nodes count:" << std::endl;
-    for (int i = 0; i < m_options.threads_num; ++i) {
-      long long int total_local =
-          OpenList[i].size() + ClosedList[i].size() + nodes_reopen[i];
-      std::cout << "tid " << i << "\tOpenList: " << OpenList[i].size()
-                << "\tClosedList: " << ClosedList[i].size()
-                << "\tReopen: " << nodes_reopen[i] << "\tTotal: " << total_local
-                << "\t(Total Processed: " << nodes_processed[i] << ")\n";
-      open_list_total += OpenList[i].size();
-      closed_list_total += ClosedList[i].size();
-      nodes_reopen_total += nodes_reopen[i];
-      nodes_processed_total += nodes_processed[i];
-      nodes_total += total_local;
-    }
-    std::cout << "Sum" << "\tOpenList: " << open_list_total
-              << "\tClosedList: " << closed_list_total
-              << "\tReopen: " << nodes_reopen_total
-              << "\tTotal: " << nodes_total
-              << "\t(Total Processed: " << nodes_processed_total << ")\n";
+  std::cout << "Total nodes count:" << std::endl;
+  for (int i = 0; i < m_options.threads_num; ++i) {
+    long long int total_local =
+        OpenList[i].size() + ClosedList[i].size() + nodes_reopen[i];
+    std::cout << "tid " << i << "\tOpenList: " << OpenList[i].size()
+              << "\tClosedList: " << ClosedList[i].size()
+              << "\tReopen: " << nodes_reopen[i] << "\tTotal: " << total_local
+              << "\t(Total Processed: " << nodes_processed[i] << ")\n";
+    open_list_total += OpenList[i].size();
+    closed_list_total += ClosedList[i].size();
+    nodes_reopen_total += nodes_reopen[i];
+    nodes_processed_total += nodes_processed[i];
+    nodes_total += total_local;
   }
+  std::cout << "Sum" << "\tOpenList: " << open_list_total
+            << "\tClosedList: " << closed_list_total
+            << "\tReopen: " << nodes_reopen_total << "\tTotal: " << nodes_total
+            << "\t(Total Processed: " << nodes_processed_total << ")\n";
 }
 
 template <int N> void PAStar<N>::print_answer() {
-  if (meeting_found) {
-    backtrace_bidirectional<N>(ClosedList_F, ClosedList_B, best_meeting_node_F,
-                               best_meeting_node_B, mu.load(),
-                               m_options.common_options.fasta_output_file,
-                               map_size, thread_map);
-  } else {
-    backtrace<N>(ClosedList_F, m_options.common_options.fasta_output_file,
-                 map_size, thread_map);
-  }
+  backtrace<N>(ClosedList, m_options.common_options.fasta_output_file, map_size,
+               thread_map);
   print_nodes_count();
 }
 
@@ -645,12 +376,12 @@ template <int N> void PAStar<N>::print_answer() {
  */
 template <int N>
 int PAStar<N>::pa_star(const Node<N> &node_zero, const Coord<N> &coord_final,
-                       const PAStarOpt &options, SearchDirection dir) {
+                       const PAStarOpt &options) {
   if (options.threads_num <= 0)
     throw std::invalid_argument("Invalid number of threads");
   Coord<N>::configure_hash(options.hash_type, options.hash_shift);
 
-  PAStar<N> pastar_instance(node_zero, options, dir);
+  PAStar<N> pastar_instance(node_zero, options);
   std::vector<std::thread> threads;
   {
     TimeCounter t("Phase 2: PA-Star running time: ");
@@ -658,8 +389,8 @@ int PAStar<N>::pa_star(const Node<N> &node_zero, const Coord<N> &coord_final,
     // Create threads
     for (int i = 1; i < options.threads_num; ++i)
       threads.push_back(
-          std::thread(&PAStar::worker, &pastar_instance, i, coord_final, dir));
-    pastar_instance.worker(0, coord_final, dir);
+          std::thread(&PAStar::worker, &pastar_instance, i, coord_final));
+    pastar_instance.worker(0, coord_final);
 
     // Wait for the end of all threads
     for (auto &th : threads)

@@ -146,89 +146,6 @@ void backtrace_print_fasta_file(std::list<char> *alignments,
   }
 }
 
-template <int N>
-void backtrace_create_alignment_bidirectional(
-    std::list<char> *alignments,
-    boost::unordered_map<Coord<N>, Node<N>> *ClosedList_F,
-    boost::unordered_map<Coord<N>, Node<N>> *ClosedList_B,
-    const Node<N> &meeting_node_F, const Node<N> &meeting_node_B, int map_size,
-    int thread_map[]) {
-  Sequences *seq = Sequences::getInstance();
-
-  // 1. Forward trace (from meeting point down to initial coord)
-  Node<N> current = meeting_node_F;
-  while (current.pos != Sequences::get_initial_coord<N>()) {
-    Coord<N> parent_pos = current.get_parent(SearchDirection::FORWARD);
-    for (int i = 0; i < N; i++) {
-      char c;
-      if (current.pos[i] != parent_pos[i])
-        c = seq->get_seq(i)[current.pos[i] - 1];
-      else
-        c = '-';
-      alignments[i].push_front(c);
-    }
-    int id = parent_pos.get_id(map_size, thread_map);
-    auto it = ClosedList_F[id].find(parent_pos);
-    if (it == ClosedList_F[id].end()) {
-      std::cerr << "ERRO FATAL no backtrace bidirecional (forward): "
-                << "parent " << parent_pos << " nao encontrado em ClosedList_F["
-                << id << "]. " << "current.pos=" << current.pos << std::endl;
-      throw std::runtime_error(
-          "Erro fatal no backtrace bidirecional (forward): parent nao "
-          "encontrado na ClosedList_F.");
-    }
-    current = it->second;
-  }
-
-  // 2. Backward trace (from meeting point up to final coord)
-  current = meeting_node_B;
-  while (current.pos != Sequences::get_final_coord<N>()) {
-    Coord<N> parent_pos = current.get_parent(SearchDirection::BACKWARD);
-    for (int i = 0; i < N; i++) {
-      char c;
-      if (current.pos[i] != parent_pos[i])
-        // parent_pos[i] = current.pos[i] + 1; the forward edge
-        // from current to parent consumes seq[i] at position
-        // current.pos[i] (0-indexed).
-        c = seq->get_seq(i)[current.pos[i]];
-      else
-        c = '-';
-      alignments[i].push_back(c);
-    }
-    int id = parent_pos.get_id(map_size, thread_map);
-    auto it = ClosedList_B[id].find(parent_pos);
-    if (it == ClosedList_B[id].end()) {
-      std::cerr << "ERRO FATAL no backtrace bidirecional (backward): "
-                << "parent " << parent_pos << " nao encontrado em ClosedList_B["
-                << id << "]. " << "current.pos=" << current.pos << std::endl;
-      throw std::runtime_error(
-          "Erro fatal no backtrace bidirecional (backward): parent nao "
-          "encontrado na ClosedList_B.");
-    }
-    current = it->second;
-  }
-}
-
-template <int N>
-void backtrace_bidirectional(
-    boost::unordered_map<Coord<N>, Node<N>> *ClosedList_F,
-    boost::unordered_map<Coord<N>, Node<N>> *ClosedList_B,
-    const Node<N> &meeting_node_F, const Node<N> &meeting_node_B, int cost,
-    const std::string &output_file, int map_size, int thread_map[]) {
-  TimeCounter t("Phase 3 - backtrace (bidirectional): ");
-  std::list<char> alignments[N];
-
-  std::cout << "Final Score (Bidirectional): " << cost << " at meeting point "
-            << meeting_node_F.pos << std::endl;
-
-  backtrace_create_alignment_bidirectional<N>(
-      alignments, ClosedList_F, ClosedList_B, meeting_node_F, meeting_node_B,
-      map_size, thread_map);
-  backtrace_print_similarity<N>(alignments);
-  backtrace_print_fasta_file<N>(alignments, output_file);
-  backtrace_print_alignment<N>(alignments);
-}
-
 /*!
  * MSA-Node backtrace functions prints the answer. Using the
  * \a ClosedList it backtrace every node until the origin is reached
@@ -249,12 +166,6 @@ void backtrace(boost::unordered_map<Coord<N>, Node<N>> *ClosedList,
   template void backtrace<X>(boost::unordered_map<Coord<X>, Node<X>> *         \
                                  ClosedList,                                   \
                              const std::string &output_file = "",              \
-                             int list_size, int thread_map[] = NULL);          \
-  template void backtrace_bidirectional<X>(                                    \
-      boost::unordered_map<Coord<X>, Node<X>> * ClosedList_F,                  \
-      boost::unordered_map<Coord<X>, Node<X>> * ClosedList_B,                  \
-      const Node<X> &meeting_node_F, const Node<X> &meeting_node_B, int cost,  \
-      const std::string &output_file = "", int list_size,                      \
-      int thread_map[] = NULL);
+                             int list_size, int thread_map[] = NULL);
 
 MAX_NUM_SEQ_HELPER(DECLARE_BACKTRACE_TEMPLATE);

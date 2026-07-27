@@ -8,7 +8,6 @@
 
 #include "Coord.h"
 #include "Node.h"
-#include "SearchDirection.h"
 
 struct AStarOpt
 {
@@ -21,8 +20,6 @@ struct AStarOpt
     std::string fasta_output_file;
     std::string log_file;
     bool verbose;
-    SearchDirection dir;
-    bool bidirectional;
 
     AStarOpt()
     {
@@ -30,8 +27,6 @@ struct AStarOpt
         fasta_output_file = "";
         log_file = "";
         verbose = false;
-        dir = SearchDirection::FORWARD;
-        bidirectional = false;
     }
     AStarOpt(bool force)
     {
@@ -39,11 +34,9 @@ struct AStarOpt
         fasta_output_file = "";
         log_file = "";
         verbose = false;
-        dir = SearchDirection::FORWARD;
-        bidirectional = false;
     }
 };
 
 template <int N>
-int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt &options, SearchDirection dir = SearchDirection::FORWARD);
+int a_star(const Node<N> &node_zero, const Coord<N> &coord_final, const AStarOpt &options);
 #endif

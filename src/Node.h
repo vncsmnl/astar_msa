@@ -10,7 +10,6 @@
 #define _NODE_H
 #include <vector>
 #include "Coord.h"
-#include "SearchDirection.h"
 
 template < int N > class Node;
 template < int N > std::ostream& operator<< (std::ostream &lhs, const Node<N> &rhs);
@@ -23,17 +22,17 @@ class Node {
         Coord<N> pos; //!< Multidimensional coordinate of the node
         int m_f; //!< priority
         Node();
-        Node(const int g, const Coord<N> &pos, const int &parenti, SearchDirection dir = SearchDirection::FORWARD);
+        Node(const int g, const Coord<N> &pos, const int &parenti);
         friend std::ostream &operator<< <>(std::ostream &lhs, const Node &rhs);
         bool operator!=(const Node &rhs) const;
         void set_max();
-        int getNeigh(std::vector<Node> a[], int map_size = 1, int thread_map[] = NULL, SearchDirection dir = SearchDirection::FORWARD);
+        int getNeigh(std::vector<Node> a[], int map_size = 1, int thread_map[] = NULL);
         int get_g() const { return m_g; };
         int get_f() const { return m_f; };
         int get_h() const { return m_f - m_g; }; //!< heuristc estimated cost to the goal
         int get_parenti() const { return parenti; };
-        inline Coord<N> get_parent(SearchDirection dir = SearchDirection::FORWARD) const {
-            return (dir == SearchDirection::FORWARD) ? pos.parent(parenti) : pos.neigh(parenti);
+        inline Coord<N> get_parent() const {
+            return pos.parent(parenti);
         };
 
     private:

@@ -59,15 +59,7 @@ template <int N> Node<N> Sequences::get_initial_node() {
   /* The "father" field must point to a negative coord, so the
      affine gaps are calculated correctly.  */
   int coord_negative = (1 << N) - 1;
-  return Node<N>(0, Sequences::get_initial_coord<N>(), coord_negative,
-                 SearchDirection::FORWARD);
-}
-
-//! Create a final node of the alignment (start node for backward search)
-template <int N> Node<N> Sequences::get_final_node() {
-  int coord_negative = (1 << N) - 1;
-  return Node<N>(0, Sequences::get_final_coord<N>(), coord_negative,
-                 SearchDirection::BACKWARD);
+  return Node<N>(0, Sequences::get_initial_coord<N>(), coord_negative);
 }
 
 //! Check if \a c is the destination
@@ -90,11 +82,7 @@ template <int N> bool Sequences::is_final(const Coord<N> &c) {
 #define DECLARE_INITIAL_NODE_TEMPLATE(X)                                       \
   template class Node<X> Sequences::get_initial_node<X>();
 
-#define DECLARE_FINAL_NODE_TEMPLATE(X)                                         \
-  template class Node<X> Sequences::get_final_node<X>();
-
 MAX_NUM_SEQ_HELPER(DECLARE_SEQUENCE_TEMPLATE);
 MAX_NUM_SEQ_HELPER(DECLARE_INITIAL_COORD_TEMPLATE);
 MAX_NUM_SEQ_HELPER(DECLARE_IS_FINAL_TEMPLATE);
 MAX_NUM_SEQ_HELPER(DECLARE_INITIAL_NODE_TEMPLATE);
-MAX_NUM_SEQ_HELPER(DECLARE_FINAL_NODE_TEMPLATE);
