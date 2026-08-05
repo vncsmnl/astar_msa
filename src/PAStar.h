@@ -70,8 +70,6 @@ struct PAStarOpt
         hash_shift = shift;
         threads_num = th;
         no_affinity = noaf;
-        log_file = "";
-        verbose = false;
     }
 };
 
@@ -105,6 +103,10 @@ private:
     Node<N> final_node;
     std::atomic<int> final_node_count;
 
+    std::mutex sync_mutex;
+    std::atomic<int> sync_count;
+    std::condition_variable sync_condition;
+
     // Constructor
     PAStar(const Node<N> &node_zero, const PAStarOpt &opt);
     ~PAStar();
@@ -112,6 +114,7 @@ private:
     // Misc functions
     void configure_thread_map();
     int set_affinity(int tid);
+    void sync_threads();
     void print_nodes_count();
 
     // Queue functions
