@@ -6,37 +6,31 @@
 #include "HeuristicHPair.h"
 
 #include <algorithm>
+#include <chrono>
+#include <iomanip>
 #include <iostream>
+#include <memory>
+#include <stdexcept>
 #include <vector>
 
 #include "Coord.h"
 #include "Sequences.h"
-#include "TimeCounter.h"
 #include "TrioAlign.h"
-
-#include <stdexcept>
 
 //! Singleton instance
 HeuristicHPair HeuristicHPair::instance;
 
 HeuristicHPair::HeuristicHPair() {
   mAligns.clear();
-  // Detect the number of available threads
   m_num_threads = std::thread::hardware_concurrency();
   if (m_num_threads == 0)
-    m_num_threads = 4; // fallback to 4 threads
+    m_num_threads = 4;
   std::cout << "Detecting number of available threads... Found "
             << m_num_threads << " threads\n";
 }
 
-//! Free all trio alignments
-HeuristicHPair::~HeuristicHPair() { destroyInstance(); }
-
-//! Free's the memory, destroying the instance
+//! Free's the memory, clearing alignments
 void HeuristicHPair::destroyInstance() {
-  for (std::vector<TrioAlign *>::iterator it = mAligns.begin();
-       it != mAligns.end(); ++it)
-    delete *it;
   mAligns.clear();
 }
 
@@ -44,11 +38,9 @@ void HeuristicHPair::destroyInstance() {
  * Call this function, after all Sequences are loaded.
  * Do the trio alignment of all Sequences and set HeuristicHPair
  * as the a-star Heuristic (h3all)
- *
- * Parallelize the calculation of triplet alignments using a thread pool.
  */
 void HeuristicHPair::init() {
-  TimeCounter tp("Phase 1 - init heuristic (h3all): ");
+  auto start_time = std::chrono::high_resolution_clock::now();
   Sequences *seq = Sequences::getInstance();
   int seq_num = Sequences::get_seq_num();
 
@@ -95,8 +87,7 @@ void HeuristicHPair::init() {
       std::string s_j = seq->get_seq(task.j);
       std::string s_k = seq->get_seq(task.k);
 
-      TrioAlign *a = new TrioAlign(task.t, s_i, s_j, s_k);
-      mAligns[idx] = a;
+      mAligns[idx] = std::unique_ptr<TrioAlign>(new TrioAlign(task.t, s_i, s_j, s_k));
     }
   };
 
@@ -119,7 +110,16 @@ void HeuristicHPair::init() {
   }
 
   std::cout << "done!\n";
-  return;
+
+  auto end_time = std::chrono::high_resolution_clock::now();
+  auto dur = end_time - start_time;
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(dur).count() % 1000;
+  auto s = std::chrono::duration_cast<std::chrono::seconds>(dur).count() % 60;
+  auto m = std::chrono::duration_cast<std::chrono::minutes>(dur).count();
+  std::cout << "Phase 1 - init heuristic (h3all): "
+            << std::setfill('0') << std::setw(2) << m << ":"
+            << std::setfill('0') << std::setw(2) << s << "."
+            << std::setfill('0') << std::setw(3) << ms << " s\n";
 }
 
 /*!
@@ -128,34 +128,24 @@ void HeuristicHPair::init() {
  * Each pair of sequences appears in (seq_num-2) different triplets.
  * Therefore, we divide the sum by the factor (seq_num-2) to obtain an
  * admissible heuristic.
- *
- * Parallelize the calculation when there are many alignments
  */
-template <int N> int HeuristicHPair::calculate_h_raw(const Coord<N> &c) const {
+template <int N> int HeuristicHPair::calculate_h(const Coord<N> &c) const {
   size_t num_aligns = mAligns.size();
   int seq_num = Sequences::get_seq_num();
-  int v_minus_2 = std::max(
-      1,
-      seq_num - 2); // Number of triplets in which each pair appears (guarded)
+  int v_minus_2 = std::max(1, seq_num - 2);
 
   int h = 0;
   for (size_t idx = 0; idx < num_aligns; ++idx) {
-    TrioAlign *align = mAligns[idx];
+    const TrioAlign *align = mAligns[idx].get();
     int x = std::get<0>(align->getTrio());
     int y = std::get<1>(align->getTrio());
     int z = std::get<2>(align->getTrio());
     h += align->getScore(c[x], c[y], c[z]);
   }
-  // Divide by the redundant count (seq_num-2) to obtain the correct average
   return h / v_minus_2;
 }
 
-template <int N> int HeuristicHPair::calculate_h(const Coord<N> &c) const {
-  return calculate_h_raw(c);
-}
-
 #define DECLARE_TEMPLATE(X)                                                    \
-  template int HeuristicHPair::calculate_h_raw<X>(Coord<X> const &) const;     \
   template int HeuristicHPair::calculate_h<X>(Coord<X> const &) const;
 
 MAX_NUM_SEQ_HELPER(DECLARE_TEMPLATE);

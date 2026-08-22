@@ -58,6 +58,6 @@ class Cost {
         }
         static void init_cost_lut();
     private:
-        static int cost_matrix['Z']['Z'];
+        static int cost_matrix[128][128];
 };
 #endif

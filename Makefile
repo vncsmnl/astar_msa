@@ -25,7 +25,7 @@ SRC_DIR     = ./src
 INC_DIR     = ./src
 OBJ_DIR     = ./obj
 CPPFLAGS   += -W -Wall $(CPPSTD)
-LDFLAGS    += -pthread -lstdc++ -lm -lhwy -lboost_program_options -lboost_system -lboost_filesystem
+LDFLAGS    += -pthread -lstdc++ -lm -lhwy -lboost_program_options
 
 ifdef THREADS
     CPPFLAGS += -DTHREADS_NUM=$(THREADS)
@@ -85,7 +85,6 @@ COMMON_CPP_SRCS += \
     $(SRC_DIR)/TrioAlign.cpp \
     $(SRC_DIR)/SIMDAligner.cpp \
     $(SRC_DIR)/Sequences.cpp \
-    $(SRC_DIR)/TimeCounter.cpp \
 
 ASTAR_SRCS = \
     $(SRC_DIR)/AStar.cpp \

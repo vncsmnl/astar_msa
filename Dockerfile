@@ -10,8 +10,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libboost-program-options-dev \
-    libboost-system-dev \
-    libboost-filesystem-dev \
     libhwy-dev \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -39,8 +37,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 # If you change the base image, update these packages to match the new version.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libboost-program-options1.74.0 \
-    libboost-system1.74.0 \
-    libboost-filesystem1.74.0 \
     libhwy1.0.7 \
     && rm -rf /var/lib/apt/lists/*
 

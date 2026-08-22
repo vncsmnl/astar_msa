@@ -7,7 +7,7 @@
 
 static Cost c;
 
-int Cost::cost_matrix[Z][Z] = {};
+int Cost::cost_matrix[128][128] = {};
 int Cost::cost_lut[128 * 128] = {};
 bool Cost::lut_initialized = false;
 int Cost::GapCost = 30;

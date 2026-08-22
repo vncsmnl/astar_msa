@@ -8,14 +8,13 @@
 #ifndef _HEURISTICHPAIR_H
 #define _HEURISTICHPAIR_H
 
-#include "Coord.h"
-#include "TrioAlign.h"
-#include "Sequences.h"
+#include <memory>
 #include <thread>
-#include <mutex>
-#include <condition_variable>
-#include <queue>
-#include <atomic>
+#include <vector>
+
+#include "Coord.h"
+#include "Sequences.h"
+#include "TrioAlign.h"
 
 class HeuristicHPair
 {
@@ -25,14 +24,12 @@ public:
     void init();
     template <int N>
     int calculate_h(const Coord<N> &c) const;
-    template <int N>
-    int calculate_h_raw(const Coord<N> &c) const;
 
 private:
     static HeuristicHPair instance;
     HeuristicHPair();
-    ~HeuristicHPair();
-    std::vector<TrioAlign *> mAligns;
+    ~HeuristicHPair() = default;
+    std::vector<std::unique_ptr<TrioAlign>> mAligns;
 
     int m_num_threads;
 };

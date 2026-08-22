@@ -49,18 +49,15 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final,
   std::vector<Node<N>> neigh;
 
   // Initialize log file if specified
-  std::ofstream *log_stream = nullptr;
+  std::ofstream log_stream;
   int iteration = 0;
 
   if (!options.log_file.empty()) {
-    log_stream = new std::ofstream(options.log_file);
-    if (!log_stream->is_open()) {
+    log_stream.open(options.log_file);
+    if (!log_stream.is_open()) {
       std::cerr << "Error opening log file: " << options.log_file << std::endl;
-      delete log_stream;
-      log_stream = nullptr;
     } else {
-      *log_stream << "A-Star Execution Log\n";
-      *log_stream << "Single-threaded execution\n\n";
+      log_stream << "A-Star Execution Log\nSingle-threaded execution\n\n";
     }
   }
 
@@ -92,7 +89,7 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final,
       // Buffer to accumulate output - avoids multiple locks
       std::ostringstream out_stream;
       bool should_log =
-          (options.verbose || log_stream) && !options.log_file.empty();
+          (options.verbose || log_stream.is_open()) && !options.log_file.empty();
 
       for (typename std::vector<Node<N>>::iterator it = neigh.begin();
            it != neigh.end(); ++it) {
@@ -115,8 +112,8 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final,
 
       // Write everything at once
       if (should_log && out_stream.tellp() > 0) {
-        if (log_stream) {
-          *log_stream << out_stream.str();
+        if (log_stream.is_open()) {
+          log_stream << out_stream.str();
         }
         if (options.verbose) {
           std::cout << out_stream.str();
@@ -128,10 +125,9 @@ int a_star(const Node<N> &node_zero, const Coord<N> &coord_final,
   } // TimeCounter destructor prints elapsed time
 
   // Write Phase 2 marker and close log
-  if (log_stream) {
-    *log_stream << "\nPhase 2: A-Star completed\n\n";
-    log_stream->close();
-    delete log_stream;
+  if (log_stream.is_open()) {
+    log_stream << "\nPhase 2: A-Star completed\n\n";
+    log_stream.close();
   }
 
   backtrace<N>(&ClosedList, options.fasta_output_file);

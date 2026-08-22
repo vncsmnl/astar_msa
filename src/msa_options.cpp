@@ -6,8 +6,7 @@
  */
 #include "msa_options.h"
 
-#include <boost/filesystem/operations.hpp>
-#include <boost/filesystem/path.hpp>
+#include <sys/stat.h>
 #include <boost/program_options.hpp>
 #include <boost/version.hpp>
 
@@ -141,8 +140,8 @@ int msa_options_core(msa_option_type type, int argc, char *argv[],
     return 1;
   }
 
-  boost::filesystem::path fpath(filename);
-  if (!boost::filesystem::is_regular_file(fpath)) {
+  struct stat st;
+  if (stat(filename.c_str(), &st) != 0 || !S_ISREG(st.st_mode)) {
     std::cout << "File: " << filename << " is not a regular file.\n";
     return 1;
   }

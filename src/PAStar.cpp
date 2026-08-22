@@ -36,19 +36,16 @@ PAStar<N>::PAStar(const Node<N> &node_zero, const struct PAStarOpt &opt)
       new boost::unordered_map<Coord<N>, Node<N>>[m_options.threads_num]();
 
   // Initialize log file if specified
-  log_stream = nullptr;
   if (!m_options.log_file.empty()) {
-    log_stream = new std::ofstream(m_options.log_file);
-    if (!log_stream->is_open()) {
+    log_stream.open(m_options.log_file);
+    if (!log_stream.is_open()) {
       std::cerr << "Error opening log file: " << m_options.log_file
                 << std::endl;
-      delete log_stream;
-      log_stream = nullptr;
     } else {
-      *log_stream << "PA-Star Execution Log\n";
-      *log_stream << "Threads: " << opt.threads_num << "\n";
-      *log_stream << "Hash: " << Coord<N>::get_hash_name() << "\n";
-      *log_stream << "Shift: " << Coord<N>::get_hash_shift() << "\n\n";
+      log_stream << "PA-Star Execution Log\n";
+      log_stream << "Threads: " << opt.threads_num << "\n";
+      log_stream << "Hash: " << Coord<N>::get_hash_name() << "\n";
+      log_stream << "Shift: " << Coord<N>::get_hash_shift() << "\n\n";
     }
   }
 
@@ -65,9 +62,8 @@ PAStar<N>::PAStar(const Node<N> &node_zero, const struct PAStarOpt &opt)
 }
 
 template <int N> PAStar<N>::~PAStar() {
-  if (log_stream) {
-    log_stream->close();
-    delete log_stream;
+  if (log_stream.is_open()) {
+    log_stream.close();
   }
   delete[] OpenList;
   delete[] ClosedList;
@@ -131,7 +127,7 @@ template <int N> void PAStar<N>::enqueue(int tid, std::vector<Node<N>> &nodes) {
   // Buffer to accumulate output - avoids multiple locks
   std::ostringstream out_stream;
   bool should_log =
-      (m_options.verbose || log_stream) && m_options.log_file != "";
+      (m_options.verbose || log_stream.is_open()) && m_options.log_file != "";
 
   for (typename std::vector<Node<N>>::iterator it = nodes.begin();
        it != nodes.end(); ++it) {
@@ -158,9 +154,9 @@ template <int N> void PAStar<N>::enqueue(int tid, std::vector<Node<N>> &nodes) {
   if (should_log && out_stream.tellp() > 0) {
     std::lock_guard<std::mutex> lock(log_mutex);
 
-    if (log_stream) {
-      *log_stream << out_stream.str();
-      log_stream->flush();
+    if (log_stream.is_open()) {
+      log_stream << out_stream.str();
+      log_stream.flush();
     }
     if (m_options.verbose) {
       std::cout << out_stream.str();
@@ -425,22 +421,24 @@ int PAStar<N>::pa_star(const Node<N> &node_zero, const Coord<N> &coord_final,
 
   PAStar<N> pastar_instance(node_zero, options);
   std::vector<std::thread> threads;
-  TimeCounter *t = new TimeCounter("Phase 2: PA-Star running time: ");
 
-  // Create threads
-  for (int i = 1; i < options.threads_num; ++i)
-    threads.push_back(
-        std::thread(&PAStar::worker, &pastar_instance, i, coord_final));
-  pastar_instance.worker(0, coord_final);
+  {
+    TimeCounter t("Phase 2: PA-Star running time: ");
 
-  // Wait for the end of all threads
-  for (auto &th : threads)
-    th.join();
-  delete t;
+    // Create threads
+    for (int i = 1; i < options.threads_num; ++i)
+      threads.push_back(
+          std::thread(&PAStar::worker, &pastar_instance, i, coord_final));
+    pastar_instance.worker(0, coord_final);
+
+    // Wait for the end of all threads
+    for (auto &th : threads)
+      th.join();
+  }
 
   // Write Phase 2 marker to log
-  if (pastar_instance.log_stream) {
-    *pastar_instance.log_stream << "\nPhase 2: PA-Star completed\n\n";
+  if (pastar_instance.log_stream.is_open()) {
+    pastar_instance.log_stream << "\nPhase 2: PA-Star completed\n\n";
   }
 
   pastar_instance.print_answer();

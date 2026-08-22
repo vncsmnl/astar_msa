@@ -49,32 +49,6 @@ unsigned int Coord<N>::part_sum_hash(const int size) const {
   return (get_part_sum() >> Shift) % size;
 }
 
-//! z_order_curve on multidimension coordinates
-template <int N> unsigned int Coord<N>::get_z_order_curve() const {
-  int hash = 0;
-  int bit_to_read = 0;
-
-  for (unsigned int bit_to_write = 1; bit_to_write != 0;) {
-    for (unsigned int j = 0; j < N && bit_to_write != 0; ++j) {
-      if (m_coord[j] & (1 << bit_to_read))
-        hash |= bit_to_write;
-      bit_to_write <<= 1;
-    }
-    ++bit_to_read;
-  }
-  return hash;
-}
-
-/*!
- * Return the full z-order-hash
- * \deprecated See Coord<N>::z_order_hash
- */
-template <int N>
-template <int Shift>
-unsigned int Coord<N>::z_order_hash_slow(const int size) const {
-  return (get_z_order_curve() >> Shift) % size;
-}
-
 /*!
  * Return the full z-order-hash fast. A full z-order-curve calculus
  * includes all bits. We want to use this as a hash (check the
@@ -152,9 +126,8 @@ unsigned int Coord<N>::get_id_shifted(const int size) const {
   case HashPZorder:
     return part_z_order_hash<Shift>(size);
   case HashFZorder:
-    return z_order_hash<Shift>(size);
   default:
-    return z_order_hash_slow<Shift>(size);
+    return z_order_hash<Shift>(size);
   }
 }
 

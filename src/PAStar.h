@@ -84,7 +84,7 @@ private:
     const PAStarOpt m_options;
     PriorityList<N> *OpenList;
     boost::unordered_map<Coord<N>, Node<N>> *ClosedList;
-    std::ofstream *log_stream;
+    std::ofstream log_stream;
     std::atomic<int> iteration_counter;
     std::mutex log_mutex; // Mutex to protect log writes
 
