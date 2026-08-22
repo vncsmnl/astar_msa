@@ -1,8 +1,18 @@
+<!-- wikikit:front-door:start -->
 # PA-Star2
 
-PA-Star is a software that performs a parallel A-Star search to solve the Multiple Sequence Alignment (MSA) problem. For comparison we also developed a serial version (msa\_astar).
+PA-Star is a software that performs a parallel A-Star search to solve the Multiple Sequence Alignment (MSA) problem. For comparison we also developed a serial version (msa_astar).
 
 PA-Star2 is a new version with several improvements on the performance. A new Workload Distribution Vector Technique has been developed, where you can distribute the work among the threads on Asymmetric Processors (Like Intel 12th to 14th Gen.). More details, check our paper (Cite us section).
+
+## Documentation
+
+Full documentation is available in the [docs/wiki/](docs/wiki/index.md) directory:
+- [Getting Started](docs/wiki/getting-started.md)
+- [Architecture & Core Concepts](docs/wiki/architecture.md)
+- [How-To: Run Parallel MSA on Hybrid CPUs](docs/wiki/how-to/run-parallel-msa.md)
+- [How-To: Build and Run with Docker](docs/wiki/how-to/build-and-run-docker.md)
+- [CLI Reference](docs/wiki/reference.md)
 
 ## Getting Started
 
@@ -45,45 +55,32 @@ docker run --rm astar-msa -t 2 seqs/3/synthetic_veryeasy.fasta
 docker run --rm --entrypoint msa_astar astar-msa seqs/3/synthetic_easy.fasta
 ```
 
-
 ## How to execute
 
-In the project we included many examples. By default, you can run msa\_astar for serial executions and msa\_pastar for parallel executions using as many cores as possible in the machine.
+In the project we included many examples. By default, you can run msa_astar for serial executions and msa_pastar for parallel executions using as many cores as possible in the machine.
 
 Few examples:
+```bash
+# Easy test:
+./bin/msa_astar seqs/Balibase/Ref1/0_short_low_id/1aboA.fasta
+
+# Running the parallel version with 4 threads:
+./bin/msa_pastar -t 4 seqs/Balibase/Ref1/0_short_low_id/1aboA.fasta
+
+# Saving the output as a fasta file:
+./bin/msa_pastar -f output.fasta seqs/Balibase/Ref1/0_short_low_id/1aboA.fasta
+
+# PA-Star2 asymmetric processor distribution:
+./bin/msa_pastar -t 16 --affinity=0,2,4,6,8,10,12,14,16,17,18,19,20,21,22,23 --hybrid-conf=8,9,8,7 seqs/Balibase/Ref1/0_short_low_id/1aboA.fasta
 ```
-#Easy test:
-./bin/msa_astar seqs/3/synthetic_easy.fasta
 
-#Medium test:
-./bin/msa_astar seqs/4/3pmg_ref1.fasta
-
-#Harder test:
-./bin/msa_pastar ./seqs/5/EASY_instances/synthetic_easy.fasta
-
-#Running the parallel version with 2 processors:
-./bin/msa_pastar -t 2 ./seqs/4/3pmg_ref1.fasta
-
-#Saving the output as a fasta "output.fasta" file
-./bin/msa_pastar -f output.fasta seqs/3/synthetic_veryeasy.fasta
-
-#PA-Star2 asymmetric processor distribution.
-#Set the affinity for Intel i7-13700k and use 8 P-Core Threads, 8 E-Core threads with
-#1:1 proportion between P-Cores and E-Cores (symmetric distribution)
-./bin/msa_pastar -t 16 --affinity=0,2,4,6,8,10,12,14,16,17,18,19,20,21,22,23 --hybrid=8,1,8,1 ./seqs/Balibase/Ref1/0_short_low_id/1aboA.fasta
-
-#PA-Star2 asymmetric processor distribution.
-#Set the affinity for Intel i7-13700k and use 8 P-Core Threads, 8 E-COre threads with
-#9:7 proportion between P-Cores and E-Cores (asymmetric distribution)
-./bin/msa_pastar -t 16 --affinity=0,2,4,6,8,10,12,14,16,17,18,19,20,21,22,23 --hybrid=8,9,8,7 ./seqs/Balibase/Ref1/0_short_low_id/1aboA.fasta
-```
 ### More options
 
-Usually the default options are the best to run. You can change and check more at:
-
+```bash
+./bin/msa_astar -h
+./bin/msa_pastar -h
 ```
-./bin/msa_astar -h or ./bin/msa_pastar -h
-```
+<!-- wikikit:front-door:end -->
 
 ### Does it work with other problems or just the multiple sequence alignment?
 

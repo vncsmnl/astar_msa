@@ -1,0 +1,21 @@
+home: docs/wiki
+engine: none
+pages:
+  - path: index.md
+    mode: none
+    documents: [README.md, Makefile]
+  - path: getting-started.md
+    mode: tutorial
+    documents: [Makefile, src/msa_astar_main.cpp, src/msa_pastar_main.cpp, seqs/**]
+  - path: architecture.md
+    mode: explanation
+    documents: [src/AStar.h, src/PAStar.h, src/PriorityList.h, src/CoordHash.h, src/SIMDAligner.h, src/TrioAlign.h, src/HeuristicHPair.h]
+  - path: how-to/run-parallel-msa.md
+    mode: how-to
+    documents: [src/PAStar.cpp, src/msa_options.cpp, src/msa_options.h]
+  - path: how-to/build-and-run-docker.md
+    mode: how-to
+    documents: [Dockerfile, .dockerignore]
+  - path: reference.md
+    mode: reference
+    documents: [src/msa_options.cpp, src/msa_options.h]
