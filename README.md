@@ -20,15 +20,15 @@ The PA-Star has been developed for Linux. The software is stable and has been st
 
 ### Prerequisites
 
-You need a modern C++ compiler, CMake, libboost devel package, and Google Highway SIMD library. On Ubuntu, you can install them by:
+You need a modern C++ compiler, Make, libboost devel package, and Google Highway SIMD library. On Ubuntu, you can install them by:
 
 ```bash
-sudo apt-get install build-essential cmake libboost-all-dev libhwy-dev
+sudo apt-get install build-essential make libboost-all-dev libhwy-dev
 ```
 
 ### Compiling
 
-To compile, you enter the project folder and use CMake:
+To compile, you enter the project folder and use Make:
 
 ```bash
 make clean && make -j$(nproc)
@@ -38,7 +38,7 @@ This command works on all major Linux distributions and the `msa_astar` and `msa
 
 ### Compiling and Running with Docker
 
-You can also build and run the application using Docker, which handles all build and runtime dependencies (CMake, Boost, and Google Highway) automatically.
+You can also build and run the application using Docker, which handles all build and runtime dependencies (Make, Boost, and Google Highway) automatically.
 
 **Build the Docker image:**
 ```bash

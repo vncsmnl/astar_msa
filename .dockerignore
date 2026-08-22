@@ -19,7 +19,7 @@ Dockerfile
 # Ignore IDE and editor configurations
 .vscode/
 .idea/
-cmake-build-*/
+make-build-*/
 out/
 
 # Ignore temporary and cache files

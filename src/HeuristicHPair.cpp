@@ -49,7 +49,7 @@ void HeuristicHPair::init() {
                                 "needs at least 3 sequences.");
   }
 
-  std::cout << "Starting trio alignments... done!" << std::flush;
+  std::cout << "Starting trio alignments...\n" << std::flush;
 #ifdef PAIRALIGN_SCORE
   std::cout << std::endl;
 #endif

@@ -1,6 +1,6 @@
 # How-To: Build and Run PA-Star2 with Docker
 
-PA-Star2 includes a multi-stage `Dockerfile` that packages build tools and runtime dependencies (CMake, Boost, and Google Highway).
+PA-Star2 includes a multi-stage `Dockerfile` that packages build tools and runtime dependencies (Make, Boost, and Google Highway).
 
 ## 1. Build the Docker Image
 

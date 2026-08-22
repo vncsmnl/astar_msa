@@ -10,7 +10,7 @@ On Ubuntu / Debian:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential cmake libboost-all-dev libhwy-dev
+sudo apt-get install -y build-essential make libboost-all-dev libhwy-dev
 ```
 
 ## 2. Compilation
